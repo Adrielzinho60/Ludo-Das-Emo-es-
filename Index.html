@@ -1,0 +1,2095 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ludo das Emoções</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+  body { min-height: 100vh; background: linear-gradient(135deg,#1a1a3e,#2d1b4e,#1a1a3e); color:#fff; overflow-x:hidden; }
+  .screen { display:none; min-height:100vh; padding:20px; }
+  .screen.active { display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  #gameScreen.active { justify-content:flex-start; padding-top:16px; }
+  #welcomeScreen, #menuScreen { padding-top:80px; }
+  h1 { font-size:clamp(2rem,6vw,3.5rem); background:linear-gradient(90deg,#ff6b6b,#feca57,#48dbfb,#1dd1a1); -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:10px; text-align:center; }
+  .subtitle { color:#a0a0c0; margin-bottom:40px; text-align:center; }
+  .menu-btns { display:flex; flex-direction:column; gap:16px; width:100%; max-width:320px; }
+  .menu-btn { padding:18px; font-size:1.1rem; border:none; border-radius:14px; background:linear-gradient(135deg,#6c5ce7,#a29bfe); color:#fff; font-weight:600; cursor:pointer; transition:transform .15s, box-shadow .15s; box-shadow:0 4px 20px rgba(108,92,231,.4); }
+  .menu-btn:hover { transform:translateY(-2px); box-shadow:0 6px 28px rgba(108,92,231,.6); }
+  .btn-iniciar { background:linear-gradient(135deg,#1dd1a1,#10ac84); box-shadow:0 4px 20px rgba(29,209,161,.4); }
+  .btn-iniciar:hover { box-shadow:0 6px 28px rgba(29,209,161,.6); }
+
+  /* Game screen */
+  #gameScreen { padding:10px; }
+  .game-top { display:flex; justify-content:space-between; align-items:center; width:100%; max-width:900px; margin-bottom:10px; }
+  .game-top h2 { font-size:1.2rem; }
+  .reset-btn { background:#ff6b6b; border:none; color:#fff; padding:8px 14px; border-radius:8px; cursor:pointer; font-weight:600; }
+
+  .board { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; width:100%; max-width:600px; aspect-ratio:1; background:rgba(255,255,255,.05); padding:10px; border-radius:16px; margin:10px auto; }
+  .cell { background:linear-gradient(135deg,#2d3561,#3d4574); border-radius:8px; position:relative; display:flex; align-items:center; justify-content:center; font-size:.75rem; font-weight:700; color:rgba(255,255,255,.55); padding:2px; min-height:0; }
+  .cell.start { background:linear-gradient(135deg,#1dd1a1,#10ac84); color:#fff; }
+  .cell.end { background:linear-gradient(135deg,#feca57,#ff9f43); color:#fff; }
+  .cell .num { position:absolute; top:2px; left:4px; font-size:.65rem; opacity:.7; }
+  .pawns { display:flex; flex-wrap:wrap; gap:2px; align-items:center; justify-content:center; }
+  .pawn { width:14px; height:14px; border-radius:50%; border:2px solid #fff; box-shadow:0 2px 4px rgba(0,0,0,.4); }
+
+  .players-panel { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; width:100%; max-width:600px; margin:10px auto; }
+  .player-card { background:rgba(255,255,255,.07); padding:12px; border-radius:12px; display:flex; flex-direction:column; align-items:center; gap:8px; border:2px solid transparent; transition:.2s; }
+  .player-card.active { border-color:#feca57; box-shadow:0 0 20px rgba(254,202,87,.4); transform:scale(1.03); }
+  .player-info { display:flex; align-items:center; gap:8px; }
+  .player-info .dot { width:18px; height:18px; border-radius:50%; border:2px solid #fff; }
+  .player-info span { font-weight:600; font-size:.9rem; }
+  .player-pos { font-size:.8rem; color:#a0a0c0; }
+  .roll-btn { padding:10px 16px; border:none; border-radius:10px; background:linear-gradient(135deg,#48dbfb,#0abde3); color:#fff; font-weight:700; cursor:pointer; width:100%; font-size:.95rem; }
+  .roll-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+  .dice { display:inline-block; width:50px; height:50px; background:#fff; color:#1a1a3e; border-radius:10px; line-height:50px; text-align:center; font-size:1.8rem; font-weight:800; box-shadow:0 4px 12px rgba(0,0,0,.4); }
+  .dice.rolling { animation:roll .6s ease-in-out; }
+  @keyframes roll { 0%{transform:rotate(0)} 50%{transform:rotate(180deg) scale(1.2)} 100%{transform:rotate(360deg)} }
+
+  .status { text-align:center; margin:10px; min-height:24px; font-weight:600; }
+
+  /* Modal */
+  .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:100; align-items:center; justify-content:center; padding:20px; }
+  .modal-bg.show { display:flex; }
+  .modal { background:linear-gradient(135deg,#2d1b4e,#3d2b5e); padding:24px; border-radius:18px; max-width:480px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,.6); border:2px solid rgba(255,255,255,.1); }
+  .modal h3 { margin-bottom:12px; font-size:1.3rem; }
+  .modal p { margin-bottom:18px; line-height:1.5; color:#e0e0f0; }
+  .modal .answers { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+  .modal .answers button { padding:12px; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.06); color:#fff; border-radius:10px; cursor:pointer; text-align:left; transition:.15s; }
+  .modal .answers button:hover { background:rgba(255,255,255,.14); }
+  .modal .close-btn { padding:12px 20px; border:none; border-radius:10px; background:linear-gradient(135deg,#1dd1a1,#10ac84); color:#fff; font-weight:700; cursor:pointer; width:100%; }
+  .modal .badge { display:inline-block; padding:4px 10px; border-radius:20px; font-size:.75rem; font-weight:700; margin-bottom:10px; }
+  .badge.curio { background:#48dbfb; color:#1a1a3e; }
+  .badge.quest { background:#feca57; color:#1a1a3e; }
+  .feedback { padding:12px; border-radius:10px; margin-bottom:14px; font-weight:600; text-align:center; }
+  .feedback.ok { background:rgba(29,209,161,.2); color:#1dd1a1; }
+  .feedback.bad { background:rgba(255,107,107,.2); color:#ff6b6b; }
+
+  @media (max-width:500px){
+    .board { gap:3px; padding:6px; }
+    .cell { font-size:.6rem; }
+    .pawn { width:10px; height:10px; border-width:1.5px; }
+  }
+
+  /* Menu hamburguer */
+  .hamburger-btn { position:fixed; top:14px; right:14px; z-index:250; width:42px; height:42px; border-radius:10px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; cursor:pointer; }
+  .hamburger-btn span { width:20px; height:2px; background:#fff; border-radius:2px; }
+  .app-menu { position:fixed; top:62px; right:14px; z-index:250; background:#1a1a3e; border:1px solid rgba(255,255,255,.15); border-radius:12px; padding:8px; min-width:190px; max-height:calc(100vh - 80px); overflow-y:auto; box-shadow:0 10px 30px rgba(0,0,0,.5); display:none; flex-direction:column; gap:4px; opacity:0; transform:translateY(-6px); transition:.18s ease; }
+  .app-menu.show { display:flex; opacity:1; transform:translateY(0); }
+  .app-menu-item { background:rgba(255,255,255,.06); border:none; color:#fff; padding:10px 12px; border-radius:8px; text-align:left; cursor:pointer; font-size:.9rem; font-weight:600; }
+  .app-menu-item:hover { background:rgba(255,255,255,.14); }
+
+  /* Tetris */
+  #tetrisScreen { padding-top:70px; }
+  .tetris-wrap { display:flex; gap:16px; align-items:flex-start; justify-content:center; flex-wrap:wrap; }
+  #tetrisCanvas { background:rgba(255,255,255,.04); border-radius:10px; border:1px solid rgba(255,255,255,.12); touch-action:none; }
+  .tetris-hud { display:flex; flex-direction:row; gap:14px; margin:10px 0 16px; }
+  .tetris-hud .stat { background:rgba(255,255,255,.07); border-radius:10px; padding:8px 14px; text-align:center; min-width:70px; }
+  .tetris-hud .stat b { display:block; font-size:1.1rem; color:#feca57; }
+  .tetris-hud .stat span { font-size:.7rem; color:#a0a0c0; }
+  .tetris-controls { display:grid; grid-template-columns:repeat(3,56px); grid-template-rows:repeat(2,56px); gap:8px; margin-top:16px; }
+  .tetris-controls button { font-size:1.3rem; border:none; border-radius:12px; background:rgba(255,255,255,.08); color:#fff; cursor:pointer; }
+  .tetris-controls button:active { background:rgba(255,255,255,.22); }
+  .tetris-controls .drop { background:linear-gradient(135deg,#ff6b6b,#ff9f43); }
+
+  /* Nave Espacial */
+  #naveCanvas { background:rgba(255,255,255,.04); border-radius:10px; border:1px solid rgba(255,255,255,.12); touch-action:none; max-width:100%; }
+  .nave-controls { display:flex; gap:18px; margin-top:16px; }
+  .nave-controls button { width:84px; height:58px; font-size:1.4rem; border:none; border-radius:12px; background:rgba(255,255,255,.08); color:#fff; cursor:pointer; }
+  .nave-controls button:active { background:rgba(255,255,255,.22); }
+
+  /* Calculadora — visual estilo Calculadora do Windows 10 (tema escuro) */
+  #calcScreen.active { justify-content:flex-start; padding-top:70px; }
+  #clickScreen.active { justify-content:flex-start; padding-top:70px; }
+  .calc-wrap { width:100%; max-width:340px; background:#1e1e1e; border-radius:8px; padding:10px; box-shadow:0 14px 40px rgba(0,0,0,.5); border:1px solid #2b2b2b; }
+  .calc-display { background:#1e1e1e; padding:18px 12px 10px; text-align:right; min-height:90px; display:flex; flex-direction:column; justify-content:flex-end; overflow:hidden; }
+  .calc-expr { color:#9d9d9d; font-size:.95rem; min-height:18px; word-break:break-all; font-family:'Segoe UI',system-ui,sans-serif; }
+  .calc-result { color:#fff; font-size:2.4rem; font-weight:400; word-break:break-all; line-height:1.1; }
+  .calc-panel, .calc-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:#2b2b2b; }
+  .calc-panel { margin-bottom:1px; }
+  .calc-btn { padding:14px 0; border:none; background:#2b2b2b; color:#fff; font-size:1.05rem; font-weight:400; cursor:pointer; transition:background .1s; }
+  .calc-btn:hover { background:#3a3a3a; }
+  .calc-btn:active { background:#0f5b96; }
+  .calc-btn.calc-fn { background:#202020; color:#e8e8e8; font-size:.9rem; }
+  .calc-btn.calc-fn:hover { background:#2d2d2d; }
+  .calc-btn.calc-op { background:#2b2b2b; color:#fff; }
+  .calc-btn.calc-eq { background:#0078d7; color:#fff; font-size:1.2rem; }
+  .calc-btn.calc-eq:hover { background:#0086ef; }
+  .calc-btn.calc-eq:active { background:#005ea6; }
+  #calcAngleBtn.on { color:#4cc2ff; }
+
+  /* Letreiro de LED */
+  @keyframes ledScroll { from { transform:translateX(0); } to { transform:translateX(-200%); } }
+  @keyframes ledHue { from { filter:hue-rotate(0deg); } to { filter:hue-rotate(360deg); } }
+  .led-wrap { width:100%; max-width:380px; }
+  .led-board { background:#050505; border:6px solid #1a1a1a; border-radius:10px; padding:0; overflow:hidden; position:relative; height:64px; display:flex; align-items:center; box-shadow: inset 0 0 18px rgba(0,0,0,.8); margin-bottom:16px; }
+  .led-text { white-space:nowrap; font-family:'Courier New', monospace; font-weight:800; font-size:2rem; letter-spacing:5px; flex-shrink:0; }
+  .led-controls { display:flex; flex-direction:column; gap:12px; }
+  .led-controls input[type=text] { padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.05); color:#fff; font-size:.95rem; }
+  .led-colors { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .led-swatch { width:34px; height:34px; border-radius:50%; border:2px solid rgba(255,255,255,.25); cursor:pointer; padding:0; }
+  .led-swatch.sel { border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,.5); }
+  .led-swatch.led-rainbow { background:conic-gradient(red,orange,yellow,green,blue,violet,red); }
+  #ledColorPicker { width:34px; height:34px; border-radius:50%; border:2px solid rgba(255,255,255,.25); padding:0; background:none; cursor:pointer; }
+  .led-toggle { color:#cfcfe6; font-size:.85rem; display:flex; align-items:center; gap:8px; }
+
+  /* Clicker / Rebirth */
+  .click-big-btn { width:170px; height:170px; border-radius:50%; border:none; background:radial-gradient(circle at 35% 32%, #8a7cf0, #5b3fd6); color:#fff; font-size:1.2rem; font-weight:800; cursor:pointer; box-shadow:0 12px 32px rgba(108,92,231,.5); margin:18px 0; transition:transform .08s; line-height:1.4; }
+  .click-big-btn:active { transform:scale(.92); }
+  .click-rebirth-btn { padding:12px 22px; border:none; border-radius:14px; background:rgba(255,255,255,.07); color:#6e6e8f; font-weight:700; cursor:not-allowed; font-size:.95rem; transition:.2s; }
+  .click-rebirth-btn.ready { background:linear-gradient(135deg,#feca57,#ff9f43); color:#1a1a3e; cursor:pointer; box-shadow:0 6px 22px rgba(254,202,87,.5); animation: clickPulse 1.2s ease infinite; }
+  @keyframes clickPulse { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.05); } }
+  .click-total { color:#a0a0c0; font-size:.85rem; margin-top:16px; text-align:center; }
+
+  /* Come-Pontos (labirinto) */
+  #pacCanvas { background:rgba(255,255,255,.04); border-radius:10px; border:1px solid rgba(255,255,255,.12); touch-action:none; max-width:100%; }
+  .pac-controls { display:grid; grid-template-columns:56px 56px 56px; grid-template-rows:56px 56px 56px; grid-template-areas: ". up ." "left . right" ". down ."; gap:6px; margin-top:16px; }
+  .pac-controls button { font-size:1.3rem; border:none; border-radius:12px; background:rgba(255,255,255,.08); color:#fff; cursor:pointer; }
+  .pac-controls button:active { background:rgba(255,255,255,.22); }
+</style>
+</head>
+<body>
+
+<!-- Menu hamburguer -->
+<button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu" style="display:none" onclick="toggleAppMenu()">
+  <span></span><span></span><span></span>
+</button>
+<div class="app-menu" id="appMenu">
+  <button class="app-menu-item" onclick="abrirLudo()">🎲 Ludo das Emoções</button>
+  <button class="app-menu-item" onclick="abrirTetris()">🧱 Tetris</button>
+  <button class="app-menu-item" onclick="abrirNave()">🚀 Defensor Espacial</button>
+  <button class="app-menu-item" onclick="abrirCalculadora()">🧮 Calculadora</button>
+  <button class="app-menu-item" onclick="abrirPac()">🟡 Come-Pontos</button>
+  <button class="app-menu-item" onclick="abrirLetreiro()">🔴 Letreiro de LED</button>
+  <button class="app-menu-item" onclick="abrirClicker()">👆 Clicker</button>
+  <button class="app-menu-item" onclick="irParaBoasVindas()">🚪 Sair</button>
+</div>
+
+<!-- TELA 0: BEM-VINDO -->
+<div class="screen active" id="welcomeScreen">
+  <h1>Bem-vindo!</h1>
+  <p class="subtitle">Ludo das Emoções</p>
+  <div class="menu-btns">
+    <button class="menu-btn btn-iniciar" onclick="mostrarTela('menuScreen')">INICIAR</button>
+  </div>
+</div>
+
+<!-- TELA 1: SELEÇÃO -->
+<div class="screen" id="menuScreen">
+  <h1>Ludo das Emoções</h1>
+  <p class="subtitle">Escolha o número de jogadores</p>
+  <div class="menu-btns">
+    <button class="menu-btn" onclick="startGame(1)">1 Jogador</button>
+    <button class="menu-btn" onclick="startGame(2)">2 Jogadores</button>
+    <button class="menu-btn" onclick="startGame(3)">3 Jogadores</button>
+    <button class="menu-btn" onclick="startGame(4)">4 Jogadores</button>
+  </div>
+</div>
+
+<!-- TELA 2: JOGO -->
+<div class="screen" id="gameScreen">
+  <div class="game-top">
+    <h2>Ludo das Emoções</h2>
+  </div>
+  <div class="status" id="status">Vez do Jogador 1</div>
+  <div class="board" id="board"></div>
+  <div style="text-align:center;"><span class="dice" id="dice">🎲</span></div>
+  <div class="players-panel" id="playersPanel"></div>
+</div>
+
+<!-- TELA 3: TETRIS -->
+<div class="screen" id="tetrisScreen">
+  <div class="game-top">
+    <h2>🧱 Tetris</h2>
+  </div>
+  <div class="tetris-hud">
+    <div class="stat"><b id="tetrisScore">0</b><span>PONTOS</span></div>
+    <div class="stat"><b id="tetrisLines">0</b><span>LINHAS</span></div>
+    <div class="stat"><b id="tetrisLevel">1</b><span>NÍVEL</span></div>
+  </div>
+  <div class="tetris-wrap">
+    <canvas id="tetrisCanvas"></canvas>
+  </div>
+  <div class="tetris-controls">
+    <button onclick="rotatePiece()">⟳</button>
+    <button onclick="movePiece(0,1)">▼</button>
+    <button class="drop" onclick="hardDrop()">⬇⬇</button>
+    <button onclick="movePiece(-1,0)">◀</button>
+    <button onclick="movePiece(0,0)" style="visibility:hidden"></button>
+    <button onclick="movePiece(1,0)">▶</button>
+  </div>
+</div>
+
+<!-- TELA 4: NAVE ESPACIAL -->
+<div class="screen" id="spaceScreen">
+  <div class="game-top">
+    <h2>🚀 Defensor Espacial</h2>
+  </div>
+  <div class="tetris-hud">
+    <div class="stat"><b id="naveScore">0</b><span>PONTOS</span></div>
+    <div class="stat"><b id="naveLives">3</b><span>VIDAS</span></div>
+  </div>
+  <div class="tetris-wrap">
+    <canvas id="naveCanvas"></canvas>
+  </div>
+  <div class="nave-controls">
+    <button id="naveLeftBtn">◀</button>
+    <button id="naveRightBtn">▶</button>
+  </div>
+</div>
+
+<!-- TELA 6: COME-PONTOS (labirinto) -->
+<div class="screen" id="pacScreen">
+  <div class="game-top">
+    <h2>🟡 Come-Pontos</h2>
+  </div>
+  <div class="tetris-hud">
+    <div class="stat"><b id="pacScore">0</b><span>PONTOS</span></div>
+    <div class="stat"><b id="pacLives">3</b><span>VIDAS</span></div>
+  </div>
+  <div class="tetris-wrap">
+    <canvas id="pacCanvas"></canvas>
+  </div>
+  <div class="pac-controls">
+    <button style="grid-area:up" onclick="pacSetDir(0,-1)">▲</button>
+    <button style="grid-area:left" onclick="pacSetDir(-1,0)">◀</button>
+    <button style="grid-area:right" onclick="pacSetDir(1,0)">▶</button>
+    <button style="grid-area:down" onclick="pacSetDir(0,1)">▼</button>
+  </div>
+</div>
+
+<!-- TELA 7: LETREIRO DE LED -->
+<div class="screen" id="letreiroScreen">
+  <div class="game-top">
+    <h2>🔴 Letreiro de LED</h2>
+  </div>
+  <div class="led-wrap">
+    <div class="led-board">
+      <div class="led-text" id="ledText">DIGITE ALGO</div>
+    </div>
+    <div class="led-controls">
+      <input type="text" id="ledInput" maxlength="60" placeholder="Digite sua mensagem..." oninput="ledUpdateText()">
+      <div class="led-colors">
+        <button class="led-swatch" style="background:#ff3b3b" onclick="ledSetColor('#ff3b3b')"></button>
+        <button class="led-swatch" style="background:#ffd93b" onclick="ledSetColor('#ffd93b')"></button>
+        <button class="led-swatch" style="background:#3bff6a" onclick="ledSetColor('#3bff6a')"></button>
+        <button class="led-swatch" style="background:#3bd6ff" onclick="ledSetColor('#3bd6ff')"></button>
+        <button class="led-swatch" style="background:#ff3bd6" onclick="ledSetColor('#ff3bd6')"></button>
+        <button class="led-swatch" style="background:#ffffff" onclick="ledSetColor('#ffffff')"></button>
+        <input type="color" id="ledColorPicker" value="#ff3b3b" oninput="ledSetColor(this.value)" title="Escolher cor">
+        <button class="led-swatch led-rainbow" onclick="ledSetRainbow()" title="Colorido"></button>
+      </div>
+      <label class="led-toggle"><input type="checkbox" id="ledScrollToggle" checked onchange="ledApplyStyle()"> Rolar texto</label>
+    </div>
+  </div>
+</div>
+
+<!-- TELA 8: CLICKER / REBIRTH -->
+<div class="screen" id="clickScreen">
+  <button class="hamburger-btn" id="clickAdminBtn" style="left:14px; right:auto; display:none;" onclick="clickToggleAdminMenu()">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="app-menu" id="clickAdminMenu" style="left:14px; right:auto;">
+    <div style="padding:4px 8px 8px; font-weight:700; font-size:.82rem; color:#feca57;">⚙️ Painel ADM</div>
+    <div style="padding:0 8px 6px;">
+      <label style="display:block; font-size:.7rem; color:#a0a0c0; margin-bottom:3px;">Limite</label>
+      <input type="number" id="admLimite" style="width:100%; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); color:#fff;">
+    </div>
+    <div style="padding:0 8px 6px;">
+      <label style="display:block; font-size:.7rem; color:#a0a0c0; margin-bottom:3px;">Multiplicador</label>
+      <input type="number" id="admMult" style="width:100%; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); color:#fff;">
+    </div>
+    <div style="padding:0 8px 6px;">
+      <label style="display:block; font-size:.7rem; color:#a0a0c0; margin-bottom:3px;">Cliques por tick do auto (vazio = padrão)</label>
+      <input type="number" id="admValorTick" style="width:100%; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); color:#fff;">
+    </div>
+    <div style="padding:0 8px 6px;">
+      <label style="display:block; font-size:.7rem; color:#a0a0c0; margin-bottom:3px;">Velocidade do auto (ms por tick)</label>
+      <input type="number" id="admVelocidade" style="width:100%; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); color:#fff;">
+    </div>
+    <div style="padding:0 8px 8px;">
+      <label style="display:block; font-size:.7rem; color:#a0a0c0; margin-bottom:3px;">Duração do auto em segundos (vazio = padrão)</label>
+      <input type="number" id="admDuracao" style="width:100%; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); color:#fff;">
+    </div>
+    <button class="app-menu-item" onclick="clickAdmAplicar()">Aplicar mudanças</button>
+  </div>
+
+  <div class="game-top">
+    <h2>👆 Clicker</h2>
+  </div>
+  <div class="tetris-hud">
+    <div class="stat"><b id="clickCounter">0</b><span>CLIQUES</span></div>
+    <div class="stat"><b id="clickMult">x1.0</b><span>MULTIPLICADOR</span></div>
+    <div class="stat"><b id="clickLimite">10</b><span>LIMITE</span></div>
+  </div>
+  <button class="click-big-btn" id="clickBigBtn" onclick="clickIncrementar()">👆<br>CLIQUE</button>
+  <button class="click-rebirth-btn" id="clickRebirthBtn" onclick="clickRebirth()" disabled>🔁 Fazer Rebirth</button>
+  <button class="click-rebirth-btn" id="clickAutoBtn" onclick="clickComprarAuto()">🤖 Auto-Click</button>
+  <p class="click-total">Total acumulado (nunca reseta): <b id="clickTotal">0</b></p>
+</div>
+
+<!-- TELA 5: CALCULADORA -->
+<div class="screen" id="calcScreen">
+  <div class="game-top">
+    <h2>🧮 Calculadora</h2>
+  </div>
+  <div class="calc-wrap">
+    <div class="calc-display">
+      <div class="calc-expr" id="calcExpr">0</div>
+      <div class="calc-result" id="calcResult">0</div>
+    </div>
+    <div class="calc-panel">
+      <button class="calc-btn calc-fn" id="calcAngleBtn" onclick="calcToggleAngle()">DEG</button>
+      <button class="calc-btn calc-fn" onclick="calcClear()">AC</button>
+      <button class="calc-btn calc-fn" onclick="calcBackspace()">⌫</button>
+      <button class="calc-btn calc-fn" onclick="calcPress('(')">(</button>
+
+      <button class="calc-btn calc-fn" onclick="calcPress(')')">)</button>
+      <button class="calc-btn calc-fn" onclick="calcPress('%')">%</button>
+      <button class="calc-btn calc-fn" onclick="calcPress('^')">x^y</button>
+      <button class="calc-btn calc-fn" onclick="calcPress('^2')">x²</button>
+
+      <button class="calc-btn calc-fn" onclick="calcFunc('sin')">sin</button>
+      <button class="calc-btn calc-fn" onclick="calcFunc('cos')">cos</button>
+      <button class="calc-btn calc-fn" onclick="calcFunc('tan')">tan</button>
+      <button class="calc-btn calc-fn" onclick="calcFunc('sqrt')">√</button>
+
+      <button class="calc-btn calc-fn" onclick="calcFunc('log')">log</button>
+      <button class="calc-btn calc-fn" onclick="calcFunc('ln')">ln</button>
+      <button class="calc-btn calc-fn" onclick="calcConst('pi')">π</button>
+      <button class="calc-btn calc-fn" onclick="calcConst('e')">e</button>
+    </div>
+    <div class="calc-grid">
+      <button class="calc-btn" onclick="calcPress('7')">7</button>
+      <button class="calc-btn" onclick="calcPress('8')">8</button>
+      <button class="calc-btn" onclick="calcPress('9')">9</button>
+      <button class="calc-btn calc-op" onclick="calcPress('/')">÷</button>
+
+      <button class="calc-btn" onclick="calcPress('4')">4</button>
+      <button class="calc-btn" onclick="calcPress('5')">5</button>
+      <button class="calc-btn" onclick="calcPress('6')">6</button>
+      <button class="calc-btn calc-op" onclick="calcPress('*')">×</button>
+
+      <button class="calc-btn" onclick="calcPress('1')">1</button>
+      <button class="calc-btn" onclick="calcPress('2')">2</button>
+      <button class="calc-btn" onclick="calcPress('3')">3</button>
+      <button class="calc-btn calc-op" onclick="calcPress('-')">−</button>
+
+      <button class="calc-btn" onclick="calcPress('0')" style="grid-column:span 2">0</button>
+      <button class="calc-btn" onclick="calcPress('.')">.</button>
+      <button class="calc-btn calc-op" onclick="calcPress('+')">+</button>
+
+      <button class="calc-btn calc-eq" onclick="calcEquals()" style="grid-column:span 4">=</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal" id="modal"></div>
+</div>
+
+<script>
+// ============== DADOS ==============
+const CURIOSIDADES = [
+  "Sorrir, mesmo forçado, libera endorfinas e melhora o humor.",
+  "As emoções básicas universais são: alegria, tristeza, raiva, medo, nojo e surpresa.",
+  "Chorar libera hormônios do estresse pelas lágrimas.",
+  "O abraço de 20 segundos libera ocitocina, o hormônio do amor.",
+  "Sentir medo acelera os batimentos cardíacos para preparar fuga ou luta.",
+  "A raiva mal administrada pode aumentar o risco de doenças cardíacas.",
+  "Gratidão diária melhora o sono e reduz a ansiedade.",
+  "Emoções são contagiosas: estamos próximos de quem expressa o que sentimos.",
+  "Pessoas que nomeiam suas emoções as controlam melhor.",
+  "O cérebro leva cerca de 90 segundos para processar uma emoção forte.",
+  "A música pode mudar nosso estado emocional em segundos.",
+  "Ter um animal de estimação reduz níveis de cortisol (estresse).",
+  "Inteligência emocional é mais decisiva que o QI no sucesso profissional.",
+  "Crianças aprendem emoções observando os adultos próximos.",
+  "Respirar fundo 4 segundos acalma o sistema nervoso.",
+  "A inveja saudável pode motivar; a destrutiva adoece.",
+  "Surpresa é a emoção mais breve, dura segundos.",
+  "Pessoas otimistas vivem em média 11% a 15% mais.",
+  "Reprimir emoções aumenta o risco de doenças psicossomáticas.",
+  "O nojo nos protege de alimentos estragados e ameaças.",
+  "A tristeza tem função: nos faz refletir e buscar apoio.",
+  "Empatia ativa as mesmas áreas cerebrais da pessoa observada.",
+  "Meditação regular aumenta a massa cinzenta no cérebro.",
+  "Conversar sobre sentimentos diminui sua intensidade.",
+  "O riso reduz a dor física em até 10%.",
+  "Pessoas felizes tendem a ser mais criativas.",
+  "Sentimentos não duram para sempre — tudo passa.",
+  "Praticar bondade libera dopamina em quem dá e quem recebe.",
+  "Dormir mal aumenta a irritabilidade no dia seguinte.",
+  "Exercício físico é um antidepressivo natural.",
+  "Escrever um diário emocional ajuda a organizar pensamentos.",
+  "A vergonha é uma emoção social, aprendida na infância.",
+  "Culpa diferente de vergonha: culpa é sobre o ato, vergonha é sobre si.",
+  "Quanto mais você tenta não pensar em algo, mais pensa nisso.",
+  "Lembrar de momentos felizes ativa a mesma alegria do passado.",
+  "Tomar sol estimula a produção de serotonina, hormônio do bem-estar.",
+  "Comer chocolate libera feniletilamina, ligada à sensação de amor.",
+  "Pessoas com baixa autoestima costumam evitar elogios.",
+  "Falar 'não' é uma forma saudável de proteger a própria energia.",
+  "Olhar para a natureza por 5 minutos reduz a ansiedade.",
+  "A ansiedade é o medo do futuro; depressão, da dor do passado.",
+  "Bocejos são contagiosos por causa da empatia.",
+  "Toque humano ativa nervos que reduzem a dor.",
+  "Crianças riem em média 300 vezes por dia; adultos, 20.",
+  "Quem ajuda os outros sente mais propósito na vida.",
+  "Aprender algo novo gera dopamina, igual a uma recompensa.",
+  "Pensamentos negativos repetidos viram crenças.",
+  "Pessoas resilientes não evitam emoções, mas as atravessam.",
+  "O perdão libera quem perdoa, não quem é perdoado.",
+  "A solidão prolongada faz tão mal quanto fumar 15 cigarros por dia.",
+  "Andar descalço na grama (earthing) reduz inflamações.",
+  "Aceitar uma emoção é o primeiro passo para superá-la.",
+  "A felicidade não é destino; é prática diária.",
+  "Quem expressa gratidão tem relações mais profundas.",
+  "Sorrisos verdadeiros envolvem os olhos (sorriso de Duchenne).",
+  "Comparações sociais nas redes aumentam a tristeza.",
+  "A inveja é o ciúme aplicado a coisas; ciúme, a pessoas.",
+  "O choro de alegria é o cérebro equilibrando emoção intensa.",
+  "Empatia pode ser treinada — não nasce pronta em todos.",
+  "Pessoas autoconscientes erram menos em decisões importantes.",
+  "Ouvir música triste, paradoxalmente, pode confortar.",
+  "Quem dorme bem regula melhor as emoções.",
+  "A frase 'isso também vai passar' é cientificamente verdadeira.",
+  "Animais também sentem luto, ciúme e alegria.",
+  "Tocar um instrumento ativa quase todas as áreas do cérebro.",
+  "Cores influenciam emoções: azul acalma, vermelho energiza.",
+  "Cheiros são o sentido mais ligado à memória emocional.",
+  "Conversar com desconhecidos aumenta sensação de bem-estar.",
+  "Risadas em grupo fortalecem laços sociais.",
+  "Quem se exercita ao ar livre sente mais prazer.",
+  "Gentileza com estranhos é uma forma de autocuidado.",
+  "Estresse crônico encolhe o hipocampo, ligado à memória.",
+  "Pessoas curiosas envelhecem com mais saúde mental.",
+  "A culpa excessiva paralisa; a moderada motiva mudança.",
+  "Não existem emoções ruins, só desconfortáveis.",
+  "Sentir-se ouvido reduz a ansiedade quase como abraçar.",
+  "Atos altruístas ativam o centro de recompensa do cérebro.",
+  "O cérebro humano dá mais peso a experiências negativas.",
+  "Por isso, é preciso 5 elogios para neutralizar 1 crítica.",
+  "Pessoas felizes não têm menos problemas, lidam melhor.",
+  "Ouvir o coração bater diminui crises de pânico.",
+  "O cérebro não diferencia bem dor física de dor emocional.",
+  "Rejeição social ativa as mesmas áreas que uma dor de cabeça.",
+  "Quem expressa raiva de forma saudável adoece menos.",
+  "Crianças que aprendem sobre emoções têm melhor desempenho escolar.",
+  "Idosos costumam ser mais felizes que jovens, segundo pesquisas.",
+  "Casais que riem juntos duram mais.",
+  "Animais de estimação reduzem sintomas de depressão.",
+  "O famoso 'frio na barriga' é adrenalina sendo liberada.",
+  "Pessoas que cantam liberam endorfinas e melhoram o humor.",
+  "Dançar libera as mesmas substâncias do sexo e do chocolate.",
+  "Choro tem três tipos: basal, reflexo e emocional.",
+  "Suor de medo cheira diferente do suor de calor.",
+  "Olhar fixo nos olhos por 4 minutos cria conexão profunda.",
+  "Pessoas autênticas tendem a ser mais felizes.",
+  "Ambientes organizados reduzem ansiedade e melhoram o foco.",
+  "Plantas em casa diminuem o estresse.",
+  "Ler ficção aumenta a empatia.",
+  "Beber água com calma acalma o sistema nervoso.",
+  "Sorrir para si no espelho melhora a autoestima.",
+  "Ser perfeccionista pode esconder medo de rejeição.",
+  "Pessoas que pedem ajuda são vistas como mais competentes, não menos.",
+  "A dor emocional intensa libera adrenalina, igual à física.",
+  "O 'sentimento de borboletas' é a digestão pausando por adrenalina.",
+  "Sentar-se ereto melhora o humor.",
+  "Pessoas grato-conscientes têm sistema imunológico mais forte.",
+  "Falar consigo mesmo em terceira pessoa ajuda a regular emoções.",
+  "Você consegue mudar o humor mudando a postura corporal.",
+  "Quem perdoa tem pressão arterial mais baixa.",
+  "Lágrimas emocionais contêm hormônios que aliviam o estresse.",
+  "Emojis ativam áreas faciais do cérebro como rostos reais.",
+  "A bondade compulsiva pode ser disfarce de baixa autoestima.",
+  "Pessoas que dizem 'obrigado' frequentemente são mais felizes.",
+  "Tédio é importante: ele incentiva a criatividade.",
+  "Olhar fotos antigas pode trazer nostalgia, uma emoção mista.",
+  "Falar palavrões em situações de dor reduz a percepção dela.",
+  "O choro reduz a tensão muscular acumulada.",
+  "Fingir confiança ativa partes do cérebro da confiança real.",
+  "Pessoas que cuidam de plantas têm menos sintomas depressivos.",
+  "Voluntariado é tão bom para a saúde quanto exercício moderado.",
+  "Ouvir alguém sem julgar é um dos maiores atos de amor.",
+  "Saber pedir desculpas exige inteligência emocional.",
+  "Quem aceita críticas evolui mais rápido.",
+  "Praticar mindfulness aumenta densidade cerebral em 8 semanas.",
+  "Cães conseguem sentir nossas emoções pelo cheiro.",
+  "Casais que se abraçam ao dormir têm relações mais sólidas.",
+  "Quem se compara menos vive com mais leveza.",
+  "Sentir-se vulnerável é sinal de coragem, não fraqueza.",
+  "Brincar de algo bobo, mesmo adulto, libera tensões.",
+  "Conversas profundas geram mais felicidade que pequenas frases.",
+  "Quem agradece antes de dormir tem sono mais reparador.",
+  "Andar caminhando 30 min/dia reduz risco de depressão em 26%.",
+  "Sentir compaixão por si reduz autocrítica destrutiva.",
+  "Saber o nome de uma emoção é metade do caminho para entendê-la.",
+  "Pessoas que escrevem cartas à mão sentem mais conexão.",
+  "Limites saudáveis fortalecem relacionamentos.",
+  "O amor romântico ativa as mesmas áreas que o vício em cocaína.",
+  "Saudade é uma emoção mista de alegria e tristeza.",
+  "Crianças que choram livremente tornam-se adultos mais equilibrados.",
+  "Distrair-se de uma dor não é o mesmo que superá-la.",
+  "Quem mantém amizades antigas vive mais.",
+  "Ouvir 'eu te entendo' acalma o sistema nervoso em segundos.",
+  "Pessoas felizes praticam a celebração de pequenas vitórias.",
+  "O orgulho saudável é diferente da arrogância: reconhece esforço.",
+  "Quem aceita ajuda fortalece quem ajuda também.",
+  "A inveja apontada com honestidade revela seus próprios desejos.",
+  "Sentir alegria pela vitória do outro é sinal de maturidade emocional.",
+  "Quem ri de si mesmo se protege contra o medo da humilhação.",
+  "A felicidade duradoura vem das relações, não dos bens.",
+  "Pequenos gestos diários valem mais que grandes presentes raros.",
+  "Ouvir alguém em silêncio é uma forma de amor.",
+  "Aprender a respirar fundo é a habilidade emocional mais subestimada.",
+  "Você não é responsável pelas emoções alheias, só pelas suas reações."
+];
+
+const PERGUNTAS = [
+  { q: "Qual destas é considerada uma emoção básica universal?", a:["Curiosidade","Alegria","Vergonha","Inveja"], c:1 },
+  { q: "O que o abraço de 20 segundos libera no corpo?", a:["Adrenalina","Cortisol","Ocitocina","Insulina"], c:2 },
+  { q: "Quantos segundos o cérebro leva para processar uma emoção forte?", a:["30","60","90","120"], c:2 },
+  { q: "Qual hormônio é conhecido como o do bem-estar?", a:["Adrenalina","Serotonina","Cortisol","Glicose"], c:1 },
+  { q: "Chorar emocionalmente ajuda porque...", a:["Hidrata o olho","Libera hormônios do estresse","Aumenta a pressão","Fortalece o cabelo"], c:1 },
+  { q: "Inteligência emocional é mais importante que QI no quê?", a:["Cálculo mental","Sucesso profissional","Memorização","Esportes"], c:1 },
+  { q: "O que respirar fundo ajuda a fazer?", a:["Acalmar o sistema nervoso","Engordar","Ouvir melhor","Dormir mais"], c:0 },
+  { q: "Quanto tempo dura, em média, a emoção 'surpresa'?", a:["Segundos","Minutos","Horas","Dias"], c:0 },
+  { q: "Crianças riem em média quantas vezes por dia?", a:["20","100","300","500"], c:2 },
+  { q: "Qual o oposto saudável da raiva reprimida?", a:["Vingança","Expressão consciente","Choro","Silêncio total"], c:1 },
+  { q: "O que a meditação regular aumenta no cérebro?", a:["Massa cinzenta","Tamanho do crânio","Cor dos neurônios","Açúcar no sangue"], c:0 },
+  { q: "Empatia ativa quais áreas do cérebro?", a:["Diferentes da pessoa observada","Mesmas da pessoa observada","Apenas o lado direito","Nenhuma área"], c:1 },
+  { q: "O perdão libera principalmente...", a:["Quem foi perdoado","Quem perdoa","Os dois igualmente","Ninguém"], c:1 },
+  { q: "A solidão prolongada equivale, em risco, a fumar quantos cigarros/dia?", a:["5","10","15","25"], c:2 },
+  { q: "Qual cor costuma ter efeito mais calmante?", a:["Vermelho","Amarelo","Azul","Laranja"], c:2 },
+  { q: "O sentido mais ligado à memória emocional é o...", a:["Tato","Olfato","Visão","Paladar"], c:1 },
+  { q: "Quantos elogios neutralizam, em média, uma crítica?", a:["1","3","5","10"], c:2 },
+  { q: "O 'frio na barriga' é causado por qual substância?", a:["Adrenalina","Insulina","Serotonina","Cafeína"], c:0 },
+  { q: "Pessoas resilientes...", a:["Evitam emoções","Atravessam emoções","Negam emoções","Vivem felizes sempre"], c:1 },
+  { q: "Qual atividade libera substâncias parecidas com o sexo e chocolate?", a:["Dormir","Ler","Dançar","Estudar"], c:2 },
+  { q: "Pessoas que escrevem diário emocional...", a:["Ficam tristes","Organizam pensamentos","Esquecem mais","Dormem mal"], c:1 },
+  { q: "A culpa difere da vergonha porque é sobre...", a:["O ato","A pessoa toda","O futuro","O passado"], c:0 },
+  { q: "Pessoas otimistas vivem em média quanto a mais?", a:["1%","5%","11-15%","30%"], c:2 },
+  { q: "O hormônio do estresse é o...", a:["Ocitocina","Cortisol","Endorfina","Dopamina"], c:1 },
+  { q: "Tocar um instrumento musical ativa...", a:["Só o lado esquerdo","Só o lado direito","Quase todas as áreas cerebrais","Apenas a audição"], c:2 },
+  { q: "Olhar para a natureza por 5 minutos...", a:["Aumenta ansiedade","Reduz ansiedade","Não muda nada","Cansa os olhos"], c:1 },
+  { q: "Pessoas que praticam gratidão...", a:["Dormem pior","Dormem melhor","Não mudam o sono","Ficam mais ansiosas"], c:1 },
+  { q: "A rejeição social ativa áreas cerebrais semelhantes a...", a:["Sentir frio","Dor física","Fome","Sede"], c:1 },
+  { q: "Voluntariado faz bem comparável a...", a:["Café","Exercício moderado","Chocolate","Sono extra"], c:1 },
+  { q: "Quem dorme mal tende a ficar mais...", a:["Calmo","Irritado","Concentrado","Criativo"], c:1 },
+  { q: "Pessoas autoconscientes tendem a...", a:["Errar mais","Errar menos em decisões","Ser tímidas","Ficar isoladas"], c:1 },
+  { q: "Sorriso verdadeiro envolve...", a:["Só a boca","Os olhos também","A testa","O queixo"], c:1 },
+  { q: "Saudade é uma emoção...", a:["Pura tristeza","Mista de alegria e tristeza","Raiva","Medo"], c:1 },
+  { q: "Qual prática reduz crises de pânico ao focar no corpo?", a:["Comer","Ouvir o coração bater","Correr","Falar alto"], c:1 },
+  { q: "O famoso 'borboletas no estômago' é resultado de...", a:["Fome","Adrenalina pausando a digestão","Sede","Excesso de açúcar"], c:1 },
+  { q: "Casais que riem juntos tendem a...", a:["Durar menos","Durar mais","Discutir mais","Não mudar nada"], c:1 },
+  { q: "Pessoas que pedem ajuda são vistas geralmente como...", a:["Fracas","Mais competentes","Iguais","Egoístas"], c:1 },
+  { q: "O choro de alegria serve para...", a:["Esvaziar lágrimas","Equilibrar emoção intensa","Disfarçar dor","Atrair atenção"], c:1 },
+  { q: "Animais de estimação ajudam a reduzir...", a:["Vitamina D","Cortisol (estresse)","Visão","Peso"], c:1 },
+  { q: "Ouvir 'eu te entendo' acalma o sistema nervoso em...", a:["Horas","Minutos","Segundos","Dias"], c:2 }
+];
+
+// ============== ESTADO ==============
+let state = null;
+const COLORS = ["#ff6b6b","#48dbfb","#1dd1a1","#feca57"];
+const NAMES = ["Vermelho","Azul","Verde","Amarelo"];
+const TOTAL_CELLS = 30;
+
+function startGame(n){
+  state = {
+    nPlayers: n,
+    positions: Array(n).fill(0),
+    current: 0,
+    rolling: false,
+    usedCurios: new Set(),
+    usedQuests: new Set(),
+    cellTypes: [] // per cell: 'curio' | 'quest' | null
+  };
+  // espalhar perguntas/curiosidades nas casas (1..29). Casa 0 = início, 29 = chegada
+  const indices = Array.from({length: TOTAL_CELLS-2}, (_,i)=>i+1);
+  shuffle(indices);
+  state.cellTypes = Array(TOTAL_CELLS).fill(null);
+  // 12 perguntas e 16 curiosidades distribuídas (28 casas intermediárias)
+  indices.slice(0,12).forEach(i=> state.cellTypes[i]='quest');
+  indices.slice(12,28).forEach(i=> state.cellTypes[i]='curio');
+
+  document.getElementById('menuScreen').classList.remove('active');
+  document.getElementById('gameScreen').classList.add('active');
+  renderBoard(); renderPlayers(); updateStatus();
+}
+
+function backToMenu(){
+  document.getElementById('gameScreen').classList.remove('active');
+  document.getElementById('menuScreen').classList.add('active');
+  closeModal();
+}
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+
+function renderBoard(){
+  const b = document.getElementById('board');
+  b.innerHTML = '';
+  for(let i=0;i<TOTAL_CELLS;i++){
+    const c = document.createElement('div');
+    c.className = 'cell' + (i===0?' start':'') + (i===TOTAL_CELLS-1?' end':'');
+    let label = '';
+    if(i===0) label = 'INÍCIO';
+    else if(i===TOTAL_CELLS-1) label = 'FIM';
+    else if(state.cellTypes[i]==='quest') label = '❓';
+    else if(state.cellTypes[i]==='curio') label = '💡';
+    c.innerHTML = `<span class="num">${i}</span><div class="pawns" id="cell-${i}"></div><div style="font-size:.7rem">${label}</div>`;
+    b.appendChild(c);
+  }
+  drawPawns();
+}
+
+function drawPawns(){
+  for(let i=0;i<TOTAL_CELLS;i++){
+    const el = document.getElementById('cell-'+i);
+    if(el) el.innerHTML='';
+  }
+  state.positions.forEach((pos, idx)=>{
+    const el = document.getElementById('cell-'+pos);
+    if(el){
+      const p = document.createElement('div');
+      p.className='pawn';
+      p.style.background = COLORS[idx];
+      el.appendChild(p);
+    }
+  });
+}
+
+function renderPlayers(){
+  const panel = document.getElementById('playersPanel');
+  panel.innerHTML='';
+  for(let i=0;i<state.nPlayers;i++){
+    const card = document.createElement('div');
+    card.className = 'player-card' + (i===state.current?' active':'');
+    card.innerHTML = `
+      <div class="player-info">
+        <span class="dot" style="background:${COLORS[i]}"></span>
+        <span>Jogador ${i+1} (${NAMES[i]})</span>
+      </div>
+      <div class="player-pos">Casa: ${state.positions[i]} / ${TOTAL_CELLS-1}</div>
+      <button class="roll-btn" onclick="rollDice(${i})" ${i===state.current && !state.rolling ? '' : 'disabled'}>🎲 Rolar</button>
+    `;
+    panel.appendChild(card);
+  }
+}
+
+function updateStatus(msg){
+  document.getElementById('status').textContent = msg || `Vez do Jogador ${state.current+1} (${NAMES[state.current]})`;
+}
+
+function rollDice(playerIdx){
+  if(state.rolling || playerIdx!==state.current) return;
+  state.rolling = true;
+  renderPlayers();
+  const dice = document.getElementById('dice');
+  dice.classList.add('rolling');
+  let val;
+  let ticks = 0;
+  const iv = setInterval(()=>{
+    val = 1 + Math.floor(Math.random()*6);
+    dice.textContent = val;
+    ticks++;
+    if(ticks>=8){
+      clearInterval(iv);
+      dice.classList.remove('rolling');
+      movePlayer(playerIdx, val);
+    }
+  }, 70);
+}
+
+function movePlayer(idx, steps){
+  let target = state.positions[idx] + steps;
+  if(target > TOTAL_CELLS-1) target = TOTAL_CELLS-1;
+  state.positions[idx] = target;
+  drawPawns();
+  renderPlayers();
+
+  if(target === TOTAL_CELLS-1){
+    setTimeout(()=> showWin(idx), 400);
+    return;
+  }
+
+  const type = state.cellTypes[target];
+  if(type==='curio') setTimeout(()=> showCuriosidade(), 350);
+  else if(type==='quest') setTimeout(()=> showPergunta(), 350);
+  else nextTurn();
+}
+
+function showCuriosidade(){
+  let pool = CURIOSIDADES.map((_,i)=>i).filter(i=>!state.usedCurios.has(i));
+  if(pool.length===0){ state.usedCurios.clear(); pool = CURIOSIDADES.map((_,i)=>i); }
+  const idx = pool[Math.floor(Math.random()*pool.length)];
+  state.usedCurios.add(idx);
+  openModal(`
+    <span class="badge curio">💡 Curiosidade</span>
+    <h3>Você sabia?</h3>
+    <p>${CURIOSIDADES[idx]}</p>
+    <button class="close-btn" onclick="closeAndNext()">Continuar</button>
+  `);
+}
+
+let _lastQuestion = null;
+
+function showPergunta(){
+  let pool = PERGUNTAS.map((_,i)=>i).filter(i=>!state.usedQuests.has(i));
+  if(pool.length===0){ state.usedQuests.clear(); pool = PERGUNTAS.map((_,i)=>i); }
+  const idx = pool[Math.floor(Math.random()*pool.length)];
+  state.usedQuests.add(idx);
+  const p = PERGUNTAS[idx];
+  _lastQuestion = p;
+  const btns = p.a.map((ans,i)=>`<button onclick="answerQuestion(${i},${p.c})">${ans}</button>`).join('');
+  openModal(`
+    <span class="badge quest">❓ Pergunta</span>
+    <h3>${p.q}</h3>
+    <div class="answers">${btns}</div>
+  `);
+}
+
+function answerQuestion(chosen, correct){
+  const ok = chosen===correct;
+  const msg = ok ? '✅ Você acertou!' : '❌ Você errou!';
+  const cls = ok ? 'ok' : 'bad';
+  const respostaCorreta = _lastQuestion ? _lastQuestion.a[correct] : '';
+  openModal(`
+    <span class="badge quest">❓ Resultado</span>
+    <div class="feedback ${cls}">${msg}</div>
+    <p style="text-align:center">Resposta correta: <b>${respostaCorreta}</b></p>
+    <button class="close-btn" onclick="closeAndNext()">Continuar</button>
+  `);
+}
+
+function closeAndNext(){ closeModal(); nextTurn(); }
+
+function nextTurn(){
+  state.current = (state.current + 1) % state.nPlayers;
+  state.rolling = false;
+  renderPlayers();
+  updateStatus();
+}
+
+function showWin(idx){
+  openModal(`
+    <span class="badge curio">🏆 Vitória!</span>
+    <h3>Jogador ${idx+1} (${NAMES[idx]}) venceu!</h3>
+    <p>Parabéns! Você chegou à casa final do Ludo das Emoções.</p>
+    <button class="close-btn" onclick="closeModal(); backToMenu();">Voltar ao Menu</button>
+  `);
+}
+
+function openModal(html){
+  document.getElementById('modal').innerHTML = html;
+  document.getElementById('modalBg').classList.add('show');
+}
+function closeModal(){ document.getElementById('modalBg').classList.remove('show'); }
+
+// ============== MENU HAMBURGUER ==============
+function mostrarTela(id){
+  closeModal();
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id !== 'tetrisScreen' && tetris && tetris.timer){ clearInterval(tetris.timer); }
+  if(id !== 'spaceScreen' && nave && nave.raf){ cancelAnimationFrame(nave.raf); nave.raf = null; }
+  if(id !== 'pacScreen' && pac && pac.timer){ clearInterval(pac.timer); }
+
+  const hamburgerBtn = document.getElementById('hamburgerBtn');
+  if(id === 'welcomeScreen'){
+    hamburgerBtn.style.display = 'none';
+    document.getElementById('appMenu').classList.remove('show');
+  } else {
+    hamburgerBtn.style.display = 'flex';
+  }
+
+  const adminBtn = document.getElementById('clickAdminBtn');
+  if(adminBtn){
+    adminBtn.style.display = (id === 'clickScreen') ? 'flex' : 'none';
+    if(id !== 'clickScreen') document.getElementById('clickAdminMenu').classList.remove('show');
+  }
+}
+function toggleAppMenu(){
+  document.getElementById('appMenu').classList.toggle('show');
+}
+function abrirLudo(){
+  document.getElementById('appMenu').classList.remove('show');
+  mostrarTela('menuScreen');
+}
+function pararTudo(){
+  if(tetris && tetris.timer){ clearInterval(tetris.timer); tetris.timer = null; }
+  if(nave && nave.raf){ cancelAnimationFrame(nave.raf); nave.raf = null; }
+  if(pac && pac.timer){ clearInterval(pac.timer); pac.timer = null; }
+  if(typeof clickAuto !== 'undefined' && clickAuto && clickAuto.ativo){
+    clearInterval(clickAuto.intervaloClique);
+    clearInterval(clickAuto.intervaloContagem);
+    clickAuto.ativo = false;
+  }
+}
+function irParaBoasVindas(){
+  document.getElementById('appMenu').classList.remove('show');
+  pararTudo();
+  mostrarTela('welcomeScreen');
+}
+function abrirTetris(){
+  document.getElementById('appMenu').classList.remove('show');
+  pararTudo();
+  mostrarTela('tetrisScreen');
+  initTetris();
+}
+function abrirNave(){
+  document.getElementById('appMenu').classList.remove('show');
+  pararTudo();
+  mostrarTela('spaceScreen');
+  initNave();
+}
+function abrirCalculadora(){
+  document.getElementById('appMenu').classList.remove('show');
+  pararTudo();
+  mostrarTela('calcScreen');
+}
+function abrirPac(){
+  document.getElementById('appMenu').classList.remove('show');
+  pararTudo();
+  mostrarTela('pacScreen');
+  initPac();
+}
+function abrirLetreiro(){
+  document.getElementById('appMenu').classList.remove('show');
+  mostrarTela('letreiroScreen');
+  initLetreiro();
+}
+function abrirClicker(){
+  document.getElementById('appMenu').classList.remove('show');
+  pararTudo();
+  mostrarTela('clickScreen');
+  clickUpdateUI();
+}
+document.addEventListener('click', function(e){
+  const menu = document.getElementById('appMenu');
+  const btn = document.querySelector('.hamburger-btn');
+  if(!menu || !btn) return;
+  if(menu.classList.contains('show') && !menu.contains(e.target) && !btn.contains(e.target)){
+    menu.classList.remove('show');
+  }
+});
+
+// ============================================================
+// TETRIS — segundo jogo, 100% autocontido (sem libs externas)
+// ============================================================
+const T_COLS = 10, T_ROWS = 20, T_CELL = 24;
+const TETRIS_COLORS = { I:'#48dbfb', O:'#feca57', T:'#a29bfe', S:'#1dd1a1', Z:'#ff6b6b', J:'#5b8def', L:'#ff9f43' };
+
+const TETRIS_SHAPES = {
+  I: [ [[0,1],[1,1],[2,1],[3,1]], [[2,0],[2,1],[2,2],[2,3]], [[0,2],[1,2],[2,2],[3,2]], [[1,0],[1,1],[1,2],[1,3]] ],
+  O: [ [[1,0],[2,0],[1,1],[2,1]], [[1,0],[2,0],[1,1],[2,1]], [[1,0],[2,0],[1,1],[2,1]], [[1,0],[2,0],[1,1],[2,1]] ],
+  T: [ [[1,0],[0,1],[1,1],[2,1]], [[1,0],[1,1],[2,1],[1,2]], [[0,1],[1,1],[2,1],[1,2]], [[1,0],[0,1],[1,1],[1,2]] ],
+  S: [ [[1,0],[2,0],[0,1],[1,1]], [[1,0],[1,1],[2,1],[2,2]], [[1,1],[2,1],[0,2],[1,2]], [[0,0],[0,1],[1,1],[1,2]] ],
+  Z: [ [[0,0],[1,0],[1,1],[2,1]], [[2,0],[1,1],[2,1],[1,2]], [[0,1],[1,1],[1,2],[2,2]], [[1,0],[0,1],[1,1],[0,2]] ],
+  J: [ [[0,0],[0,1],[1,1],[2,1]], [[1,0],[2,0],[1,1],[1,2]], [[0,1],[1,1],[2,1],[2,2]], [[1,0],[1,1],[0,2],[1,2]] ],
+  L: [ [[2,0],[0,1],[1,1],[2,1]], [[1,0],[1,1],[1,2],[2,2]], [[0,1],[1,1],[2,1],[0,2]], [[0,0],[1,0],[1,1],[1,2]] ]
+};
+
+let tetris = null;
+
+function tetrisRandomType(){
+  const types = Object.keys(TETRIS_SHAPES);
+  return types[Math.floor(Math.random()*types.length)];
+}
+
+function initTetris(){
+  if(tetris && tetris.timer) clearInterval(tetris.timer);
+
+  const canvas = document.getElementById('tetrisCanvas');
+  canvas.width = T_COLS * T_CELL;
+  canvas.height = T_ROWS * T_CELL;
+
+  tetris = {
+    grid: Array.from({length:T_ROWS}, ()=> Array(T_COLS).fill(null)),
+    current: null,
+    next: tetrisRandomType(),
+    score: 0,
+    lines: 0,
+    level: 1,
+    dropInterval: 800,
+    timer: null,
+    gameOver: false
+  };
+  tetrisSpawn();
+  updateTetrisHUD();
+  drawTetris();
+  tetris.timer = setInterval(tetrisTick, tetris.dropInterval);
+}
+
+function tetrisSpawn(){
+  const type = tetris.next;
+  tetris.next = tetrisRandomType();
+  tetris.current = { type, rot:0, x:3, y:-1 };
+  if(tetrisCollision(tetris.current, 0, 0)){
+    tetrisGameOver();
+  }
+}
+
+function tetrisCells(piece){
+  return TETRIS_SHAPES[piece.type][piece.rot].map(([cx,cy])=>[piece.x+cx, piece.y+cy]);
+}
+
+function tetrisCollision(piece, dx, dy, rotOverride){
+  const rot = rotOverride !== undefined ? rotOverride : piece.rot;
+  const cells = TETRIS_SHAPES[piece.type][rot];
+  for(const [cx,cy] of cells){
+    const x = piece.x + cx + dx;
+    const y = piece.y + cy + dy;
+    if(x < 0 || x >= T_COLS || y >= T_ROWS) return true;
+    if(y >= 0 && tetris.grid[y][x]) return true;
+  }
+  return false;
+}
+
+function movePiece(dx, dy){
+  if(!tetris || tetris.gameOver) return false;
+  if(!tetrisCollision(tetris.current, dx, dy)){
+    tetris.current.x += dx;
+    tetris.current.y += dy;
+    drawTetris();
+    return true;
+  }
+  return false;
+}
+
+function rotatePiece(){
+  if(!tetris || tetris.gameOver) return;
+  const newRot = (tetris.current.rot + 1) % 4;
+  if(!tetrisCollision(tetris.current, 0, 0, newRot)){
+    tetris.current.rot = newRot;
+    drawTetris();
+  }
+}
+
+function hardDrop(){
+  if(!tetris || tetris.gameOver) return;
+  while(movePiece(0,1)){}
+  tetrisLock();
+}
+
+function tetrisTick(){
+  if(!tetris || tetris.gameOver) return;
+  const tela = document.getElementById('tetrisScreen');
+  if(!tela || !tela.classList.contains('active')){
+    clearInterval(tetris.timer); tetris.timer = null; return;
+  }
+  if(!movePiece(0,1)){
+    tetrisLock();
+  }
+}
+
+function tetrisLock(){
+  for(const [x,y] of tetrisCells(tetris.current)){
+    if(y>=0) tetris.grid[y][x] = tetris.current.type;
+  }
+  tetrisClearLines();
+  tetrisSpawn();
+  updateTetrisHUD();
+  drawTetris();
+}
+
+function tetrisClearLines(){
+  let cleared = 0;
+  for(let y=T_ROWS-1; y>=0; y--){
+    if(tetris.grid[y].every(c=>c)){
+      tetris.grid.splice(y,1);
+      tetris.grid.unshift(Array(T_COLS).fill(null));
+      cleared++;
+      y++;
+    }
+  }
+  if(cleared>0){
+    const pontosPorLinha = [0,100,300,500,800];
+    tetris.score += (pontosPorLinha[cleared] || cleared*200) * tetris.level;
+    tetris.lines += cleared;
+    tetris.level = 1 + Math.floor(tetris.lines/10);
+    tetris.dropInterval = Math.max(120, 800 - (tetris.level-1)*60);
+    clearInterval(tetris.timer);
+    tetris.timer = setInterval(tetrisTick, tetris.dropInterval);
+  }
+}
+
+function tetrisGameOver(){
+  tetris.gameOver = true;
+  clearInterval(tetris.timer);
+  openModal(`
+    <span class="badge curio">🧱 Fim de jogo!</span>
+    <h3>Pontuação: ${tetris.score}</h3>
+    <p>Linhas completas: ${tetris.lines}</p>
+    <button class="close-btn" onclick="closeModal(); initTetris();">Jogar de novo</button>
+  `);
+}
+
+function updateTetrisHUD(){
+  document.getElementById('tetrisScore').textContent = tetris.score;
+  document.getElementById('tetrisLines').textContent = tetris.lines;
+  document.getElementById('tetrisLevel').textContent = tetris.level;
+}
+
+function drawTetris(){
+  const canvas = document.getElementById('tetrisCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  for(let y=0;y<T_ROWS;y++){
+    for(let x=0;x<T_COLS;x++){
+      if(tetris.grid[y][x]) drawTetrisCell(ctx,x,y,TETRIS_COLORS[tetris.grid[y][x]]);
+    }
+  }
+  if(tetris.current){
+    for(const [x,y] of tetrisCells(tetris.current)){
+      if(y>=0) drawTetrisCell(ctx,x,y,TETRIS_COLORS[tetris.current.type]);
+    }
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  for(let x=0;x<=T_COLS;x++){ ctx.beginPath(); ctx.moveTo(x*T_CELL,0); ctx.lineTo(x*T_CELL,T_ROWS*T_CELL); ctx.stroke(); }
+  for(let y=0;y<=T_ROWS;y++){ ctx.beginPath(); ctx.moveTo(0,y*T_CELL); ctx.lineTo(T_COLS*T_CELL,y*T_CELL); ctx.stroke(); }
+}
+
+function drawTetrisCell(ctx,x,y,color){
+  ctx.fillStyle = color;
+  ctx.fillRect(x*T_CELL+1, y*T_CELL+1, T_CELL-2, T_CELL-2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.strokeRect(x*T_CELL+1, y*T_CELL+1, T_CELL-2, T_CELL-2);
+}
+
+// Teclado (desktop) — só responde quando a tela do Tetris está ativa
+document.addEventListener('keydown', function(e){
+  const tela = document.getElementById('tetrisScreen');
+  if(!tela || !tela.classList.contains('active') || !tetris || tetris.gameOver) return;
+  if(e.key==='ArrowLeft'){ movePiece(-1,0); e.preventDefault(); }
+  else if(e.key==='ArrowRight'){ movePiece(1,0); e.preventDefault(); }
+  else if(e.key==='ArrowDown'){ movePiece(0,1); e.preventDefault(); }
+  else if(e.key==='ArrowUp'){ rotatePiece(); e.preventDefault(); }
+  else if(e.key===' '){ hardDrop(); e.preventDefault(); }
+});
+
+// ============================================================
+// DEFENSOR ESPACIAL — terceiro jogo, estilo nave que atira pra cima
+// sem parar, destruindo inimigos que vêm de cima (gênero clássico
+// de shooter vertical). 100% autocontido, sem libs externas.
+// ============================================================
+let nave = null;
+const NAVE_W = 300, NAVE_H = 460;
+
+function initNave(){
+  if(nave && nave.raf) cancelAnimationFrame(nave.raf);
+
+  const canvas = document.getElementById('naveCanvas');
+  canvas.width = NAVE_W;
+  canvas.height = NAVE_H;
+
+  nave = {
+    ship: { x: NAVE_W/2 - 16, y: NAVE_H - 56, w:32, h:32 },
+    bullets: [],
+    enemies: [],
+    stars: Array.from({length:40}, ()=> ({ x: Math.random()*NAVE_W, y: Math.random()*NAVE_H, s: 1+Math.random()*2 })),
+    score: 0,
+    lives: 3,
+    gameOver: false,
+    lastShot: 0,
+    lastSpawn: 0,
+    invuln: 0,
+    keys: { left:false, right:false },
+    raf: null
+  };
+  updateNaveHUD();
+  naveDraw();
+  nave.raf = requestAnimationFrame(naveLoop);
+}
+
+function naveLoop(ts){
+  if(!nave) return;
+  const tela = document.getElementById('spaceScreen');
+  if(!tela || !tela.classList.contains('active')){
+    nave.raf = null; return; // não reagenda — loop morre aqui de vez
+  }
+  if(!nave.gameOver){
+    naveUpdate(ts || 0);
+  }
+  naveDraw();
+  nave.raf = requestAnimationFrame(naveLoop);
+}
+
+function naveUpdate(ts){
+  const speed = 4.5;
+  if(nave.keys.left) nave.ship.x -= speed;
+  if(nave.keys.right) nave.ship.x += speed;
+  nave.ship.x = Math.max(4, Math.min(NAVE_W - nave.ship.w - 4, nave.ship.x));
+
+  // atira automaticamente, sem parar
+  if(ts - nave.lastShot > 220){
+    nave.bullets.push({ x: nave.ship.x + nave.ship.w/2 - 2, y: nave.ship.y, w:4, h:12 });
+    nave.lastShot = ts;
+  }
+  nave.bullets.forEach(b => b.y -= 8);
+  nave.bullets = nave.bullets.filter(b => b.y > -20);
+
+  // inimigos vindo de cima, ficam mais frequentes com a pontuação
+  const intervaloSpawn = Math.max(380, 900 - nave.score*1.5);
+  if(ts - nave.lastSpawn > intervaloSpawn){
+    const w = 28 + Math.random()*14;
+    nave.enemies.push({ x: Math.random()*(NAVE_W-w), y: -w, w, h:w, speed: 1.6 + Math.random()*1.8 });
+    nave.lastSpawn = ts;
+  }
+  nave.enemies.forEach(en => en.y += en.speed);
+  nave.enemies = nave.enemies.filter(en => en.y < NAVE_H + 40);
+
+  nave.stars.forEach(s => { s.y += s.s; if(s.y > NAVE_H) s.y = 0; });
+
+  // bala destrói inimigo
+  for(let i=nave.enemies.length-1;i>=0;i--){
+    const en = nave.enemies[i];
+    for(let j=nave.bullets.length-1;j>=0;j--){
+      const b = nave.bullets[j];
+      if(b.x < en.x+en.w && b.x+b.w > en.x && b.y < en.y+en.h && b.y+b.h > en.y){
+        nave.enemies.splice(i,1);
+        nave.bullets.splice(j,1);
+        nave.score += 10;
+        updateNaveHUD();
+        break;
+      }
+    }
+  }
+
+  // inimigo bate na nave
+  if(nave.invuln > 0) nave.invuln -= 16;
+  for(let i=nave.enemies.length-1;i>=0;i--){
+    const en = nave.enemies[i];
+    const s = nave.ship;
+    if(nave.invuln<=0 && s.x < en.x+en.w && s.x+s.w > en.x && s.y < en.y+en.h && s.y+s.h > en.y){
+      nave.enemies.splice(i,1);
+      nave.lives--;
+      nave.invuln = 1000;
+      updateNaveHUD();
+      if(nave.lives<=0) naveGameOver();
+    }
+  }
+}
+
+function naveDraw(){
+  const canvas = document.getElementById('naveCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#10102a';
+  ctx.fillRect(0,0,NAVE_W,NAVE_H);
+
+  ctx.fillStyle = 'rgba(255,255,255,.5)';
+  nave.stars.forEach(s => ctx.fillRect(s.x, s.y, s.s, s.s));
+
+  // inimigos: alienzinhos 👾
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  nave.enemies.forEach(en => {
+    ctx.font = `${en.w}px sans-serif`;
+    ctx.fillText('👾', en.x + en.w/2, en.y + en.h/2 + 1);
+  });
+
+  ctx.fillStyle = '#feca57';
+  nave.bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+
+  // nave: triângulo com chama do motor e contorno
+  if(nave.invuln<=0 || Math.floor(nave.invuln/100)%2===0){
+    const s = nave.ship;
+    const cx = s.x + s.w/2;
+
+    // chama do motor (atrás da nave)
+    ctx.fillStyle = 'rgba(255,159,67,.85)';
+    ctx.beginPath();
+    ctx.moveTo(cx - 5, s.y + s.h - 2);
+    ctx.lineTo(cx + 5, s.y + s.h - 2);
+    ctx.lineTo(cx, s.y + s.h + 10 + Math.random()*4);
+    ctx.closePath();
+    ctx.fill();
+
+    // corpo triangular da nave
+    ctx.beginPath();
+    ctx.moveTo(cx, s.y);
+    ctx.lineTo(s.x + s.w, s.y + s.h);
+    ctx.lineTo(s.x, s.y + s.h);
+    ctx.closePath();
+    ctx.fillStyle = '#48dbfb';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#e0fbff';
+    ctx.stroke();
+
+    // cockpit
+    ctx.beginPath();
+    ctx.arc(cx, s.y + s.h*0.68, 3.2, 0, Math.PI*2);
+    ctx.fillStyle = '#1a1a3e';
+    ctx.fill();
+  }
+}
+
+function naveGameOver(){
+  nave.gameOver = true;
+  if(nave.raf){ cancelAnimationFrame(nave.raf); nave.raf = null; }
+  openModal(`
+    <span class="badge curio">🚀 Fim de jogo!</span>
+    <h3>Pontuação: ${nave.score}</h3>
+    <button class="close-btn" onclick="closeModal(); initNave();">Jogar de novo</button>
+  `);
+}
+
+function updateNaveHUD(){
+  document.getElementById('naveScore').textContent = nave.score;
+  document.getElementById('naveLives').textContent = nave.lives;
+}
+
+// Controles: arrasta o dedo na tela ou usa os botões ◀ ▶
+(function naveSetupControls(){
+  const canvas = document.getElementById('naveCanvas');
+  const leftBtn = document.getElementById('naveLeftBtn');
+  const rightBtn = document.getElementById('naveRightBtn');
+
+  function moveToX(clientX){
+    if(!nave) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = NAVE_W / rect.width;
+    const x = (clientX - rect.left) * scaleX;
+    nave.ship.x = Math.max(4, Math.min(NAVE_W - nave.ship.w - 4, x - nave.ship.w/2));
+  }
+
+  canvas.addEventListener('touchstart', (e)=>{ moveToX(e.touches[0].clientX); e.preventDefault(); }, {passive:false});
+  canvas.addEventListener('touchmove', (e)=>{ moveToX(e.touches[0].clientX); e.preventDefault(); }, {passive:false});
+  canvas.addEventListener('mousedown', (e)=> moveToX(e.clientX));
+  canvas.addEventListener('mousemove', (e)=>{ if(e.buttons===1) moveToX(e.clientX); });
+
+  function setKey(k, v){ if(nave) nave.keys[k] = v; }
+  ['touchstart','mousedown'].forEach(evt=>{
+    leftBtn.addEventListener(evt, (e)=>{ setKey('left', true); e.preventDefault(); }, {passive:false});
+    rightBtn.addEventListener(evt, (e)=>{ setKey('right', true); e.preventDefault(); }, {passive:false});
+  });
+  ['touchend','touchcancel','mouseup','mouseleave'].forEach(evt=>{
+    leftBtn.addEventListener(evt, ()=> setKey('left', false));
+    rightBtn.addEventListener(evt, ()=> setKey('right', false));
+  });
+})();
+
+document.addEventListener('keydown', function(e){
+  const tela = document.getElementById('spaceScreen');
+  if(!tela || !tela.classList.contains('active') || !nave || nave.gameOver) return;
+  if(e.key==='ArrowLeft'){ nave.keys.left = true; e.preventDefault(); }
+  else if(e.key==='ArrowRight'){ nave.keys.right = true; e.preventDefault(); }
+});
+document.addEventListener('keyup', function(e){
+  if(!nave) return;
+  if(e.key==='ArrowLeft') nave.keys.left = false;
+  else if(e.key==='ArrowRight') nave.keys.right = false;
+});
+
+// ============================================================
+// CALCULADORA CIENTÍFICA — quarto item do menu
+// Tokenizer + parser recursivo + avaliador, sem usar eval().
+// Suporta: + - * / ^ ! % parênteses, multiplicação implícita
+// (ex: 2(3+4), 2pi), funções sin/cos/tan/asin/acos/atan/log/ln/
+// sqrt/abs, constantes pi/e, e alternância entre grau e radiano.
+// ============================================================
+let calc = { expr: '', justEvaluated: false, angleMode: 'deg' };
+
+function calcTokenize(str){
+  const tokens = [];
+  let i = 0;
+  while(i < str.length){
+    const c = str[i];
+    if(c === ' '){ i++; continue; }
+    if(/[0-9.]/.test(c)){
+      let num = '';
+      while(i<str.length && /[0-9.]/.test(str[i])){ num += str[i]; i++; }
+      tokens.push({type:'num', value: parseFloat(num)});
+      continue;
+    }
+    if(/[a-zA-Z]/.test(c)){
+      let id = '';
+      while(i<str.length && /[a-zA-Z]/.test(str[i])){ id += str[i]; i++; }
+      tokens.push({type:'id', value: id});
+      continue;
+    }
+    if('+-*/^()%!'.includes(c)){
+      tokens.push({type:'op', value:c});
+      i++;
+      continue;
+    }
+    i++; // ignora caractere desconhecido
+  }
+  return tokens;
+}
+
+function calcParse(tokens){
+  let pos = 0;
+  const peek = () => tokens[pos];
+  const next = () => tokens[pos++];
+
+  function parseExpr(){
+    let node = parseTerm();
+    while(peek() && peek().type==='op' && (peek().value==='+'||peek().value==='-')){
+      const op = next().value;
+      node = { type:'bin', op, left:node, right: parseTerm() };
+    }
+    return node;
+  }
+  function parseTerm(){
+    let node = parsePow();
+    while(peek() && (
+      (peek().type==='op' && (peek().value==='*'||peek().value==='/')) ||
+      peek().type==='num' || peek().type==='id' || (peek().type==='op'&&peek().value==='(')
+    )){
+      let op = '*';
+      if(peek().type==='op' && (peek().value==='*'||peek().value==='/')) op = next().value;
+      node = { type:'bin', op, left:node, right: parsePow() };
+    }
+    return node;
+  }
+  function parsePow(){
+    let node = parseUnary();
+    if(peek() && peek().type==='op' && peek().value==='^'){
+      next();
+      node = { type:'bin', op:'^', left:node, right: parsePow() };
+    }
+    return node;
+  }
+  function parseUnary(){
+    if(peek() && peek().type==='op' && peek().value==='-'){
+      next();
+      return { type:'neg', value: parseUnary() };
+    }
+    return parsePostfix();
+  }
+  function parsePostfix(){
+    let node = parsePrimary();
+    while(peek() && peek().type==='op' && (peek().value==='!' || peek().value==='%')){
+      const op = next().value;
+      node = { type: op==='!' ? 'fact' : 'pct', value: node };
+    }
+    return node;
+  }
+  function parsePrimary(){
+    const t = peek();
+    if(!t) throw new Error('Expressão incompleta');
+    if(t.type==='num'){ next(); return { type:'num', value:t.value }; }
+    if(t.type==='op' && t.value==='('){
+      next();
+      const node = parseExpr();
+      if(!(peek() && peek().value===')')) throw new Error('Parêntese não fechado');
+      next();
+      return node;
+    }
+    if(t.type==='id'){
+      next();
+      const name = t.value;
+      if(peek() && peek().type==='op' && peek().value==='('){
+        next();
+        const arg = parseExpr();
+        if(!(peek() && peek().value===')')) throw new Error('Parêntese não fechado');
+        next();
+        return { type:'func', name, arg };
+      }
+      return { type:'const', name };
+    }
+    throw new Error('Token inesperado');
+  }
+
+  const result = parseExpr();
+  if(pos < tokens.length) throw new Error('Expressão inválida');
+  return result;
+}
+
+function calcEval(node, angleMode){
+  switch(node.type){
+    case 'num': return node.value;
+    case 'neg': return -calcEval(node.value, angleMode);
+    case 'pct': return calcEval(node.value, angleMode) / 100;
+    case 'fact': {
+      const v = calcEval(node.value, angleMode);
+      if(v<0 || Math.floor(v)!==v) throw new Error('Fatorial inválido');
+      let r=1; for(let i=2;i<=v;i++) r*=i;
+      return r;
+    }
+    case 'const': {
+      if(node.name==='pi') return Math.PI;
+      if(node.name==='e') return Math.E;
+      throw new Error('Constante desconhecida: '+node.name);
+    }
+    case 'func': {
+      const a = calcEval(node.arg, angleMode);
+      const toRad = v => angleMode==='deg' ? v*Math.PI/180 : v;
+      const toDeg = v => angleMode==='deg' ? v*180/Math.PI : v;
+      switch(node.name){
+        case 'sin': return Math.sin(toRad(a));
+        case 'cos': return Math.cos(toRad(a));
+        case 'tan': return Math.tan(toRad(a));
+        case 'asin': return toDeg(Math.asin(a));
+        case 'acos': return toDeg(Math.acos(a));
+        case 'atan': return toDeg(Math.atan(a));
+        case 'log': return Math.log10(a);
+        case 'ln': return Math.log(a);
+        case 'sqrt': return Math.sqrt(a);
+        case 'abs': return Math.abs(a);
+        default: throw new Error('Função desconhecida: '+node.name);
+      }
+    }
+    case 'bin': {
+      const l = calcEval(node.left, angleMode);
+      const r = calcEval(node.right, angleMode);
+      switch(node.op){
+        case '+': return l+r;
+        case '-': return l-r;
+        case '*': return l*r;
+        case '/': return l/r;
+        case '^': return Math.pow(l,r);
+        default: throw new Error('Operador desconhecido');
+      }
+    }
+  }
+  throw new Error('Nó inválido');
+}
+
+function calcUpdateDisplay(){
+  const el = document.getElementById('calcExpr');
+  if(el) el.textContent = calc.expr || '0';
+}
+
+function calcPress(token){
+  if(calc.justEvaluated){
+    if(/^[0-9.]$/.test(token)) calc.expr = '';
+    calc.justEvaluated = false;
+  }
+  calc.expr += token;
+  calcUpdateDisplay();
+}
+
+function calcFunc(name){
+  if(calc.justEvaluated){ calc.expr=''; calc.justEvaluated=false; }
+  calc.expr += name + '(';
+  calcUpdateDisplay();
+}
+
+function calcConst(name){
+  if(calc.justEvaluated){ calc.expr=''; calc.justEvaluated=false; }
+  calc.expr += name;
+  calcUpdateDisplay();
+}
+
+function calcClear(){
+  calc.expr = '';
+  calc.justEvaluated = false;
+  document.getElementById('calcResult').textContent = '0';
+  calcUpdateDisplay();
+}
+
+function calcBackspace(){
+  calc.expr = calc.expr.slice(0, -1);
+  calcUpdateDisplay();
+}
+
+function calcToggleAngle(){
+  calc.angleMode = calc.angleMode==='deg' ? 'rad' : 'deg';
+  const btn = document.getElementById('calcAngleBtn');
+  btn.textContent = calc.angleMode.toUpperCase();
+  btn.classList.toggle('on', calc.angleMode==='rad');
+}
+
+function calcEquals(){
+  try{
+    const tokens = calcTokenize(calc.expr);
+    if(tokens.length===0) return;
+    const tree = calcParse(tokens);
+    const result = calcEval(tree, calc.angleMode);
+    const limpo = Math.round(result*1e10)/1e10; // corrige erro de ponto flutuante
+    document.getElementById('calcResult').textContent = limpo;
+    calc.expr = String(limpo);
+    calc.justEvaluated = true;
+    calcUpdateDisplay();
+  }catch(e){
+    document.getElementById('calcResult').textContent = 'Erro';
+  }
+}
+
+// ============================================================
+// COME-PONTOS — quinto item do menu, jogo original de labirinto
+// (gênero "maze chase": come pontos, fuja dos inimigos, pílulas
+// de poder deixam você comer eles de volta por um tempo).
+// Labirinto, visual e nomes 100% próprios — sem usar a marca
+// registrada de nenhum jogo existente.
+// ============================================================
+const PM_COLS = 13, PM_ROWS = 13, PM_CELL = 22;
+const PM_MAZE_TXT = [
+  "#############",
+  "#...........#",
+  "#.###...###.#",
+  "#.###...###.#",
+  "#.###...###.#",
+  "#...........#",
+  "#...........#",
+  "#...........#",
+  "#.###...###.#",
+  "#.###...###.#",
+  "#.###...###.#",
+  "#...........#",
+  "#############"
+];
+
+let pac = null;
+const PM_ENEMY_COLORS = ['#ff6b6b', '#48dbfb', '#feca57', '#a29bfe'];
+
+function pmBuildMaze(){
+  const walls = [], dots = [];
+  for(let r=0;r<PM_ROWS;r++){
+    walls.push([]); dots.push([]);
+    for(let c=0;c<PM_COLS;c++){
+      const ch = PM_MAZE_TXT[r][c];
+      walls[r][c] = (ch === '#');
+      dots[r][c] = (ch === '.');
+    }
+  }
+  const pellets = {};
+  [[1,1],[1,11],[11,1],[11,11]].forEach(([r,c])=>{
+    pellets[r+','+c] = true;
+    dots[r][c] = false;
+  });
+  return { walls, dots, pellets };
+}
+
+function pmCelulaAleatoria(maze){
+  let r, c, tentativas = 0;
+  do{
+    r = 1 + Math.floor(Math.random() * (PM_ROWS - 2));
+    c = 1 + Math.floor(Math.random() * (PM_COLS - 2));
+    tentativas++;
+  } while(maze.walls[r][c] && tentativas < 300);
+  return { r, c };
+}
+
+// Escolhe 4 posições aleatórias para os inimigos nascerem, sempre
+// com uma distância mínima do jogador (pra nunca nascer um colado
+// nele, sem chance de fugir) e sem repetir a mesma casa entre eles.
+function pmEscolherSpawnsInimigos(maze, playerR, playerC){
+  const DIST_MINIMA = 5;
+  const usados = new Set();
+  const spots = [];
+  for(let i=0;i<4;i++){
+    let cel, chave, tentativas = 0;
+    do{
+      cel = pmCelulaAleatoria(maze);
+      chave = cel.r + ',' + cel.c;
+      tentativas++;
+    } while(
+      tentativas < 300 &&
+      (usados.has(chave) || (Math.abs(cel.r-playerR) + Math.abs(cel.c-playerC)) < DIST_MINIMA)
+    );
+    usados.add(chave);
+    spots.push(cel);
+  }
+  return spots;
+}
+
+function pmCanMove(r,c){
+  return r>=0 && r<PM_ROWS && c>=0 && c<PM_COLS && !pac.maze.walls[r][c];
+}
+
+function initPac(){
+  if(pac && pac.timer) clearInterval(pac.timer);
+
+  const canvas = document.getElementById('pacCanvas');
+  canvas.width = PM_COLS * PM_CELL;
+  canvas.height = PM_ROWS * PM_CELL;
+
+  const maze = pmBuildMaze();
+  const playerStart = { r:6, c:6 };
+  const spawns = pmEscolherSpawnsInimigos(maze, playerStart.r, playerStart.c);
+
+  pac = {
+    maze,
+    player: { r:playerStart.r, c:playerStart.c, dir:{dx:0,dy:0}, nextDir:{dx:0,dy:0} },
+    enemies: spawns.map((s,i)=>({ r:s.r, c:s.c, color: PM_ENEMY_COLORS[i] })),
+    score: 0,
+    lives: 3,
+    powerTime: 0,
+    gameOver: false,
+    won: false,
+    tickMs: 320,
+    timer: null
+  };
+  updatePacHUD();
+  pacDraw();
+  pac.timer = setInterval(pacTick, pac.tickMs);
+}
+
+function pacSetDir(dx, dy){
+  if(!pac) return;
+  pac.player.nextDir = { dx, dy };
+}
+
+function pmMoveEnemy(en){
+  const dirs = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}];
+  const validos = dirs.filter(d => pmCanMove(en.r+d.dy, en.c+d.dx));
+  if(validos.length===0) return;
+  let escolhido;
+  const fugindo = pac.powerTime > 0;
+  const tentaSeguirJogador = fugindo ? true : Math.random() < 0.88;
+  if(tentaSeguirJogador){
+    escolhido = validos.reduce((melhor, d)=>{
+      const dist = Math.abs((en.r+d.dy)-pac.player.r) + Math.abs((en.c+d.dx)-pac.player.c);
+      const venceu = !melhor || (fugindo ? dist > melhor.dist : dist < melhor.dist);
+      return venceu ? { d, dist } : melhor;
+    }, null).d;
+  } else {
+    escolhido = validos[Math.floor(Math.random()*validos.length)];
+  }
+  en.r += escolhido.dy;
+  en.c += escolhido.dx;
+}
+
+function pacTick(){
+  if(!pac || pac.gameOver || pac.won) return;
+  const telaPac = document.getElementById('pacScreen');
+  if(!telaPac || !telaPac.classList.contains('active')){
+    clearInterval(pac.timer); pac.timer = null; return;
+  }
+  const p = pac.player;
+
+  if(pmCanMove(p.r + p.nextDir.dy, p.c + p.nextDir.dx)) p.dir = p.nextDir;
+  if(pmCanMove(p.r + p.dir.dy, p.c + p.dir.dx)){
+    p.r += p.dir.dy;
+    p.c += p.dir.dx;
+  }
+
+  if(pac.maze.dots[p.r][p.c]){
+    pac.maze.dots[p.r][p.c] = false;
+    pac.score += 10;
+  }
+  const key = p.r + ',' + p.c;
+  if(pac.maze.pellets[key]){
+    pac.maze.pellets[key] = false;
+    pac.score += 50;
+    pac.powerTime = 6000;
+  }
+  if(pac.powerTime > 0) pac.powerTime = Math.max(0, pac.powerTime - pac.tickMs);
+
+  pac.enemies.forEach(en => pmMoveEnemy(en));
+
+  pac.enemies.forEach(en => {
+    if(en.r===p.r && en.c===p.c){
+      if(pac.powerTime > 0){
+        en.r = 6; en.c = 6;
+        pac.score += 100;
+      } else {
+        pacLoseLife();
+      }
+    }
+  });
+
+  let restamPontos = false;
+  for(let r=0;r<PM_ROWS;r++){
+    for(let c=0;c<PM_COLS;c++){
+      if(pac.maze.dots[r][c]) restamPontos = true;
+    }
+  }
+  const restamPilulas = Object.values(pac.maze.pellets).some(v=>v);
+  if(!restamPontos && !restamPilulas) pacWin();
+
+  updatePacHUD();
+  pacDraw();
+}
+
+function pacLoseLife(){
+  pac.lives--;
+  updatePacHUD();
+  if(pac.lives <= 0){
+    pac.gameOver = true;
+    clearInterval(pac.timer);
+    openModal(`
+      <span class="badge curio">👻 Fim de jogo!</span>
+      <h3>Pontuação: ${pac.score}</h3>
+      <button class="close-btn" onclick="closeModal(); initPac();">Jogar de novo</button>
+    `);
+  } else {
+    pac.player.r=6; pac.player.c=6; pac.player.dir={dx:0,dy:0}; pac.player.nextDir={dx:0,dy:0};
+    const spawns = pmEscolherSpawnsInimigos(pac.maze, pac.player.r, pac.player.c);
+    pac.enemies.forEach((en,i)=>{ en.r = spawns[i].r; en.c = spawns[i].c; });
+  }
+}
+
+function pacWin(){
+  pac.won = true;
+  clearInterval(pac.timer);
+  openModal(`
+    <span class="badge curio">🏆 Você limpou o labirinto!</span>
+    <h3>Pontuação final: ${pac.score}</h3>
+    <button class="close-btn" onclick="closeModal(); initPac();">Jogar de novo</button>
+  `);
+}
+
+function updatePacHUD(){
+  document.getElementById('pacScore').textContent = pac.score;
+  document.getElementById('pacLives').textContent = pac.lives;
+}
+
+function pacDraw(){
+  const canvas = document.getElementById('pacCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0d0d24';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  for(let r=0;r<PM_ROWS;r++){
+    for(let c=0;c<PM_COLS;c++){
+      const x = c*PM_CELL, y = r*PM_CELL;
+      if(pac.maze.walls[r][c]){
+        ctx.fillStyle = '#2d3561';
+        ctx.fillRect(x+1, y+1, PM_CELL-2, PM_CELL-2);
+      } else if(pac.maze.dots[r][c]){
+        ctx.fillStyle = '#feca57';
+        ctx.beginPath();
+        ctx.arc(x+PM_CELL/2, y+PM_CELL/2, 2.5, 0, Math.PI*2);
+        ctx.fill();
+      }
+      const key = r + ',' + c;
+      if(pac.maze.pellets[key]){
+        ctx.fillStyle = '#1dd1a1';
+        ctx.beginPath();
+        ctx.arc(x+PM_CELL/2, y+PM_CELL/2, 6, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+  }
+
+  pac.enemies.forEach(en=>{
+    const x = en.c*PM_CELL + PM_CELL/2, y = en.r*PM_CELL + PM_CELL/2;
+    ctx.fillStyle = pac.powerTime>0 ? '#5f5f87' : en.color;
+    ctx.beginPath();
+    ctx.arc(x, y, PM_CELL/2-3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(x-4,y-3,2.4,0,Math.PI*2); ctx.arc(x+4,y-3,2.4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#1a1a3e';
+    ctx.beginPath(); ctx.arc(x-4,y-3,1.1,0,Math.PI*2); ctx.arc(x+4,y-3,1.1,0,Math.PI*2); ctx.fill();
+  });
+
+  const p = pac.player;
+  const x = p.c*PM_CELL + PM_CELL/2, y = p.r*PM_CELL + PM_CELL/2;
+  const radius = PM_CELL/2 - 2;
+  let rot = 0;
+  if(p.dir.dx===1) rot = 0;
+  else if(p.dir.dx===-1) rot = Math.PI;
+  else if(p.dir.dy===-1) rot = -Math.PI/2;
+  else if(p.dir.dy===1) rot = Math.PI/2;
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.rotate(rot);
+  ctx.fillStyle = '#feca57';
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  ctx.arc(0, 0, radius, 0.25*Math.PI, 1.75*Math.PI);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+// Controles: D-pad (já no HTML), teclado e arrastar o dedo na tela
+document.addEventListener('keydown', function(e){
+  const tela = document.getElementById('pacScreen');
+  if(!tela || !tela.classList.contains('active') || !pac) return;
+  if(e.key==='ArrowUp'){ pacSetDir(0,-1); e.preventDefault(); }
+  else if(e.key==='ArrowDown'){ pacSetDir(0,1); e.preventDefault(); }
+  else if(e.key==='ArrowLeft'){ pacSetDir(-1,0); e.preventDefault(); }
+  else if(e.key==='ArrowRight'){ pacSetDir(1,0); e.preventDefault(); }
+});
+
+(function pacSetupSwipe(){
+  const canvas = document.getElementById('pacCanvas');
+  let sx=0, sy=0;
+  canvas.addEventListener('touchstart', e=>{
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+  }, {passive:true});
+  canvas.addEventListener('touchend', e=>{
+    const dx = e.changedTouches[0].clientX - sx;
+    const dy = e.changedTouches[0].clientY - sy;
+    if(Math.abs(dx) < 12 && Math.abs(dy) < 12) return; // toque rápido, ignora
+    if(Math.abs(dx) > Math.abs(dy)) pacSetDir(dx>0 ? 1 : -1, 0);
+    else pacSetDir(0, dy>0 ? 1 : -1);
+  }, {passive:true});
+})();
+
+// ============================================================
+// LETREIRO DE LED — sexto item do menu. Texto rolando estilo
+// painel de LED, com cor escolhida (paleta ou seletor de cor
+// livre) ou modo "colorido" (cicla todas as cores sem parar).
+// ============================================================
+let letreiro = { text: 'OI! TUDO BEM?', color: '#ff3b3b', rainbow: false };
+
+function initLetreiro(){
+  document.getElementById('ledInput').value = letreiro.text;
+  ledMarcarCorSelecionada();
+  ledApplyStyle();
+}
+
+function ledUpdateText(){
+  const input = document.getElementById('ledInput');
+  letreiro.text = input.value.toUpperCase().trim() || 'DIGITE ALGO';
+  ledApplyStyle();
+}
+
+function ledSetColor(cor){
+  letreiro.color = cor;
+  letreiro.rainbow = false;
+  document.getElementById('ledColorPicker').value = cor;
+  ledMarcarCorSelecionada();
+  ledApplyStyle();
+}
+
+function ledSetRainbow(){
+  letreiro.rainbow = true;
+  ledMarcarCorSelecionada();
+  ledApplyStyle();
+}
+
+function ledMarcarCorSelecionada(){
+  document.querySelectorAll('.led-swatch').forEach(b => b.classList.remove('sel'));
+  if(letreiro.rainbow){
+    const rb = document.querySelector('.led-swatch.led-rainbow');
+    if(rb) rb.classList.add('sel');
+  } else {
+    document.querySelectorAll('.led-swatch').forEach(b=>{
+      if(b.style.background === letreiro.color || ledColorsEqual(b.style.background, letreiro.color)) b.classList.add('sel');
+    });
+  }
+}
+
+function ledColorsEqual(a, b){
+  // compara cores de forma simples (hex vs rgb computado pelo navegador)
+  const d = document.createElement('div');
+  d.style.color = a; const ca = d.style.color;
+  d.style.color = b; const cb = d.style.color;
+  return ca === cb;
+}
+
+function ledApplyStyle(){
+  const el = document.getElementById('ledText');
+  if(!el) return;
+  el.textContent = letreiro.text;
+
+  const scroll = document.getElementById('ledScrollToggle').checked;
+  const len = letreiro.text.length || 1;
+  const duracao = Math.max(4, len * 0.32);
+  const animacoes = [];
+
+  if(scroll){
+    el.style.paddingLeft = '100%';
+    animacoes.push(`ledScroll ${duracao}s linear infinite`);
+  } else {
+    el.style.paddingLeft = '14px';
+  }
+
+  if(letreiro.rainbow){
+    el.style.color = '#ff3b3b';
+    el.style.textShadow = '0 0 8px rgba(255,255,255,.6), 0 0 18px rgba(255,255,255,.4)';
+    el.style.filter = 'hue-rotate(0deg)';
+    animacoes.push('ledHue 3s linear infinite');
+  } else {
+    el.style.color = letreiro.color;
+    el.style.textShadow = `0 0 8px ${letreiro.color}, 0 0 20px ${letreiro.color}, 0 0 36px ${letreiro.color}`;
+    el.style.filter = 'none';
+  }
+
+  el.style.animation = animacoes.join(', ');
+}
+
+// ============================================================
+// CLICKER / REBIRTH — sétimo item do menu.
+// Clique aumenta o contador; ao atingir o limite, pode fazer
+// "rebirth" (não é obrigatório — o limite só libera o botão,
+// nunca trava os cliques normais). Rebirth zera o contador,
+// aumenta o multiplicador em +0,5x e aumenta o próximo limite.
+// ============================================================
+let clickState = { total: 0, count: 0, limit: 10, multiplier: 1, rebirths: 0 };
+const CLICK_LIMITES_BASE = [10, 15, 23, 42];
+
+function clickLimiteParaRebirth(n){
+  if(n < CLICK_LIMITES_BASE.length) return CLICK_LIMITES_BASE[n];
+  let limite = CLICK_LIMITES_BASE[CLICK_LIMITES_BASE.length - 1];
+  for(let i=CLICK_LIMITES_BASE.length; i<=n; i++) limite = Math.round(limite * 1.4);
+  return limite;
+}
+
+function clickIncrementar(){
+  clickState.count += clickState.multiplier;
+  clickState.total += clickState.multiplier;
+  clickUpdateUI();
+}
+
+function clickRebirth(){
+  if(clickState.count < clickState.limit) return; // limite só libera o botão, não bloqueia cliques
+  clickState.rebirths++;
+  clickState.multiplier = 1 + 0.5 * clickState.rebirths;
+  clickState.limit = clickLimiteParaRebirth(clickState.rebirths);
+  clickState.count = 0;
+  clickUpdateUI();
+}
+
+function clickFmt(v){
+  return (Math.round(v * 10) / 10).toString().replace('.', ',');
+}
+
+const CLICK_SUFIXOS = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
+function clickFmtGrande(v){
+  if(v < 1000) return clickFmt(v);
+  let i = 0, n = v;
+  while(n >= 1000 && i < CLICK_SUFIXOS.length - 1){ n /= 1000; i++; }
+  const casas = n < 10 ? 2 : n < 100 ? 1 : 0;
+  return n.toFixed(casas).replace('.', ',') + CLICK_SUFIXOS[i];
+}
+
+function clickUpdateUI(){
+  document.getElementById('clickCounter').textContent = clickFmtGrande(clickState.count);
+  document.getElementById('clickMult').textContent = clickFmt(clickState.multiplier);
+  document.getElementById('clickLimite').textContent = clickFmtGrande(clickState.limit);
+  document.getElementById('clickTotal').textContent = clickFmtGrande(clickState.total);
+
+  const pronto = clickState.count >= clickState.limit;
+  const btn = document.getElementById('clickRebirthBtn');
+  btn.disabled = !pronto;
+  btn.classList.toggle('ready', pronto);
+
+  const autoBtn = document.getElementById('clickAutoBtn');
+  if(autoBtn){
+    if(clickAuto.ativo){
+      autoBtn.disabled = true;
+      autoBtn.classList.remove('ready');
+      autoBtn.textContent = `🤖 Ativo · ${Math.ceil(clickAuto.restanteMs/1000)}s`;
+    } else {
+      const custo = clickAutoCusto();
+      autoBtn.textContent = `🤖 Auto-Click (${clickFmtGrande(custo)} cliques · ${clickAutoDuracao()}s)`;
+      const podeComprar = clickState.total >= custo;
+      autoBtn.disabled = !podeComprar;
+      autoBtn.classList.toggle('ready', podeComprar);
+    }
+  }
+}
+
+// ============================================================
+// AUTO-CLICK — desbloqueado pagando cliques do total acumulado,
+// fica ativo por um tempo curto (3s, 5s, 7s, 9s... +2s a cada uso)
+// e cada uso seguinte fica mais caro.
+// ============================================================
+let clickAuto = { usos: 0, ativo: false, restanteMs: 0, intervaloClique: null, intervaloContagem: null };
+
+function clickAutoCusto(){
+  return Math.round(20 * Math.pow(1.35, clickAuto.usos));
+}
+function clickAutoDuracao(){
+  return 3 + clickAuto.usos * 2;
+}
+
+function clickComprarAuto(){
+  if(clickAuto.ativo) return;
+  const custo = clickAutoCusto();
+  if(clickState.total < custo) return;
+
+  clickState.total -= custo;
+  clickAuto.usos++;
+  clickAuto.ativo = true;
+  const duracaoS = clickAdmin.autoDuracaoS != null ? clickAdmin.autoDuracaoS : clickAutoDuracao();
+  clickAuto.restanteMs = duracaoS * 1000;
+
+  clickAuto.intervaloClique = setInterval(()=>{
+    if(clickAdmin.autoValorPorTick != null){
+      clickState.count += clickAdmin.autoValorPorTick;
+      clickState.total += clickAdmin.autoValorPorTick;
+      clickUpdateUI();
+    } else {
+      clickIncrementar();
+    }
+  }, clickAdmin.autoVelocidadeMs);
+
+  clickAuto.intervaloContagem = setInterval(()=>{
+    clickAuto.restanteMs -= 100;
+    if(clickAuto.restanteMs <= 0){
+      clearInterval(clickAuto.intervaloClique);
+      clearInterval(clickAuto.intervaloContagem);
+      clickAuto.ativo = false;
+    }
+    clickUpdateUI();
+  }, 100);
+
+  clickUpdateUI();
+}
+
+// ============================================================
+// PAINEL ADM DO CLICKER — fica num menu hambúrguer próprio, do
+// lado esquerdo (oposto ao menu principal), só aparece dentro do
+// jogo Clicker. Custa 100 cliques do total pra desbloquear (uma
+// vez só). Deixa mudar limite, multiplicador e as configurações
+// do auto-click (valor por tick, velocidade, duração).
+// ============================================================
+let clickAdmin = {
+  desbloqueado: false,
+  autoValorPorTick: null,  // null = usa o multiplicador normal
+  autoVelocidadeMs: 150,
+  autoDuracaoS: null       // null = usa a fórmula padrão (3,5,7,9...)
+};
+
+function clickToggleAdminMenu(){
+  if(!clickAdmin.desbloqueado){
+    const custo = 100;
+    if(clickState.total < custo){
+      openModal(`
+        <span class="badge curio">🔒 Painel ADM bloqueado</span>
+        <p>Você precisa de ${custo} cliques acumulados pra desbloquear (tem ${clickFmtGrande(clickState.total)}).</p>
+        <button class="close-btn" onclick="closeModal()">Entendi</button>
+      `);
+      return;
+    }
+    clickState.total -= custo;
+    clickAdmin.desbloqueado = true;
+    clickUpdateUI();
+    openModal(`
+      <span class="badge curio">🔓 Painel ADM desbloqueado!</span>
+      <p>Agora você pode ajustar limite, multiplicador e as configurações do auto-click.</p>
+      <button class="close-btn" onclick="closeModal(); clickAbrirAdminMenu();">Abrir painel</button>
+    `);
+    return;
+  }
+  clickAbrirAdminMenu();
+}
+
+function clickAbrirAdminMenu(){
+  document.getElementById('admLimite').value = clickState.limit;
+  document.getElementById('admMult').value = clickState.multiplier;
+  document.getElementById('admValorTick').value = clickAdmin.autoValorPorTick != null ? clickAdmin.autoValorPorTick : '';
+  document.getElementById('admVelocidade').value = clickAdmin.autoVelocidadeMs;
+  document.getElementById('admDuracao').value = clickAdmin.autoDuracaoS != null ? clickAdmin.autoDuracaoS : '';
+  document.getElementById('clickAdminMenu').classList.toggle('show');
+}
+
+function clickAdmAplicar(){
+  const lim = parseFloat(document.getElementById('admLimite').value);
+  const mult = parseFloat(document.getElementById('admMult').value);
+  const vtRaw = document.getElementById('admValorTick').value;
+  const vel = parseFloat(document.getElementById('admVelocidade').value);
+  const durRaw = document.getElementById('admDuracao').value;
+
+  if(!isNaN(lim) && lim > 0) clickState.limit = lim;
+  if(!isNaN(mult) && mult > 0) clickState.multiplier = mult;
+  clickAdmin.autoValorPorTick = (vtRaw === '') ? null : parseFloat(vtRaw);
+  if(!isNaN(vel) && vel >= 30) clickAdmin.autoVelocidadeMs = vel;
+  clickAdmin.autoDuracaoS = (durRaw === '') ? null : parseFloat(durRaw);
+
+  clickUpdateUI();
+  document.getElementById('clickAdminMenu').classList.remove('show');
+}
+</script>
+
+</body>
+</html>
